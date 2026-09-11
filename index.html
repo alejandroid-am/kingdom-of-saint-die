@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#171526">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="Un reino cooperativo para dos. Las tareas de casa lo hacen crecer.">
+<title>Kingdom of Saint-Dié</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon-64.png" sizes="64x64" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<script>
+  /* Credenciales de Supabase. Vacías = modo local (sin backend), para
+     validar el diseño. La clave anon es pública por diseño: lo que
+     protege los datos son las políticas RLS de schema.sql.
+     Para conectar: crea el proyecto, ejecuta schema.sql, y pega aquí. */
+  window.SUPABASE_URL = '';
+  window.SUPABASE_ANON_KEY = '';
+</script>
+<style>
+  :root{
+    --bg-night:#171526; --bg-panel:#241F3D; --bg-panel-raised:#2E2850;
+    --parchment:#F1E4C3; --amber:#E8A33D; --amber-dim:#7A5A2A;
+    --ale:#5B8DEF; --ale-dim:#2E4C8A; --aline:#E37FA1; --aline-dim:#7A3F52;
+    --ink:#171526; --outline:#0D0B18;
+    --hogar:#C97A4A; --vitalidad:#6FA287; --mente:#5FA8C7; --alegria:#F2C94C; --union:#D96FB0; --jardin:#6FBF73;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg-night);color:var(--parchment);font-family:'VT323',monospace;font-size:19px;min-height:100vh;display:flex;justify-content:center;}
+  .pixel{font-family:'Press Start 2P',monospace;}
+  .app{width:100%;max-width:420px;min-height:100vh;background:var(--bg-night);border-left:2px solid var(--outline);border-right:2px solid var(--outline);position:relative;overflow-x:hidden;padding-bottom:150px;}
+
+  /* --- top bar: minimal --- */
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 10px;}
+  .crest{font-size:10px;color:var(--amber);letter-spacing:1px;line-height:1.5;}
+  .crest em{display:block;font-style:normal;font-size:7px;opacity:.75;letter-spacing:2px;margin-bottom:3px;}
+  .icon-btn{width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:20px;background:var(--bg-panel);color:var(--parchment);border:2px solid var(--outline);cursor:pointer;}
+  .icon-btn:focus-visible{outline:3px solid var(--amber);outline-offset:2px;}
+
+  .screen{display:none;padding:0 16px;}
+  .screen.active{display:block;animation:fadeIn .25s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+  /* Accesibilidad: foco visible en todo lo interactivo */
+  a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:focus-visible{
+    outline:3px solid var(--amber); outline-offset:2px;
+  }
+  /* Movimiento reducido: nada se mueve por su cuenta */
+  @media (prefers-reduced-motion:reduce){
+    *, *::before, *::after{
+      animation-duration:.001ms !important; animation-iteration-count:1 !important;
+      transition-duration:.001ms !important; scroll-behavior:auto !important;
+    }
+  }
+
+  /* ===== SCREEN 1: kingdom ===== */
+  .kingdom{border:2px solid var(--outline);box-shadow:0 4px 0 var(--outline);position:relative;overflow:hidden;background:#5a8f4e;}
+  .map-stage{position:relative;width:100%;height:min(58vh,520px);overflow:hidden;background:#5a8f4e;touch-action:none;cursor:grab;}
+  .map-stage:active{cursor:grabbing;}
+  .map-stage canvas{display:block;width:100%;height:100%;image-rendering:pixelated;}
+  .map-zone{position:absolute;left:0;right:0;top:12px;margin:0;text-align:center;font-family:'Press Start 2P',monospace;font-size:10px;color:#fff;text-shadow:0 2px 0 var(--outline),0 0 10px rgba(0,0,0,.6);pointer-events:none;opacity:0;transition:opacity .5s;letter-spacing:1px;}
+  .map-hint{position:absolute;left:0;right:0;bottom:8px;margin:0;text-align:center;font-size:13px;color:var(--parchment);opacity:.55;pointer-events:none;transition:opacity .4s;}
+  .map-daynight{position:absolute;right:8px;top:8px;width:40px;height:40px;font-size:18px;background:rgba(13,11,24,.66);color:#fff;border:2px solid var(--outline);cursor:pointer;}
+  .map-daynight:focus-visible{outline:3px solid var(--amber);outline-offset:2px;}
+  .map-loading{position:absolute;inset:0;margin:0;display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P',monospace;font-size:9px;color:var(--parchment);background:#5a8f4e;}
+
+  .prosperity-track{height:14px;background:var(--outline);border:2px solid var(--outline);border-top:none;}
+  .prosperity-fill{height:100%;width:0%;background:repeating-linear-gradient(90deg,var(--amber) 0 8px,#f0b862 8px 16px);transition:width .7s cubic-bezier(.2,.9,.3,1.3);}
+  @media (prefers-reduced-motion:reduce){.prosperity-fill{transition:none;}}
+
+  .kingdom-line{text-align:center;margin-top:12px;font-size:21px;}
+  .kingdom-line b{color:var(--amber);}
+  .kingdom-sub{text-align:center;font-size:15px;opacity:.55;margin-top:3px;}
+  .draft-note-row{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+  .draft-dismiss{flex:none;background:none;border:none;color:var(--amber);font-family:'VT323',monospace;font-size:18px;cursor:pointer;line-height:1;padding:2px 4px;}
+  .draft-dismiss:focus-visible{outline:2px solid var(--amber);outline-offset:2px;}
+
+
+  /* ===== SCREEN 2: us ===== */
+  .screen-title{font-family:'Press Start 2P',monospace;font-size:10px;color:var(--amber);margin:4px 0 14px;}
+  .moods{display:flex;gap:8px;margin-bottom:16px;}
+  .mood-card{flex:1;min-width:0;background:var(--bg-panel);border:2px solid var(--outline);box-shadow:0 4px 0 var(--outline);padding:9px 10px;cursor:pointer;color:var(--parchment);font-family:'VT323',monospace;text-align:left;}
+  .mood-card:active{box-shadow:0 2px 0 var(--outline);transform:translateY(2px);}
+  .mood-card.ale{border-left:5px solid var(--ale);} .mood-card.aline{border-left:5px solid var(--aline);}
+  .mood-card.needs-care{border-color:var(--amber);box-shadow:0 4px 0 var(--amber-dim);}
+  .mood-owner{font-size:12px;opacity:.55;}
+  .mood-value{font-size:17px;line-height:1.2;margin-top:2px;display:flex;gap:6px;align-items:flex-start;}
+  .mood-emoji{font-size:19px;flex:none;}
+  .mood-cta{font-size:12px;color:var(--amber);margin-top:4px;min-height:14px;}
+
+  .team{display:flex;flex-direction:column;gap:12px;}
+  .char-card{background:var(--bg-panel);border:2px solid var(--outline);box-shadow:0 4px 0 var(--outline);padding:11px;position:relative;}
+  .char-card.leveling{animation:levelPulse .7s ease;}
+  @keyframes levelPulse{0%{transform:scale(1);}30%{transform:scale(1.03);}100%{transform:scale(1);}}
+  .char-top{display:flex;gap:11px;align-items:center;margin-bottom:9px;}
+  .avatar{width:48px;height:48px;flex:none;background:var(--bg-night);border:2px solid var(--outline);display:flex;align-items:center;justify-content:center;font-size:23px;position:relative;}
+  .avatar.ale{box-shadow:inset 0 0 0 3px var(--ale-dim);} .avatar.aline{box-shadow:inset 0 0 0 3px var(--aline-dim);}
+  .lvl-badge{position:absolute;bottom:-8px;right:-8px;font-family:'Press Start 2P',monospace;font-size:9px;background:var(--amber);color:var(--ink);padding:3px 5px;border:2px solid var(--outline);}
+  .char-info{flex:1;min-width:0;}
+  .char-name-row{display:flex;align-items:baseline;justify-content:space-between;gap:6px;}
+  .char-name{font-size:21px;} .char-name.ale{color:var(--ale);} .char-name.aline{color:var(--aline);}
+  .char-class{font-size:11px;opacity:.55;text-align:right;}
+  .last-action{font-size:13px;margin-top:2px;opacity:.85;min-height:16px;}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;}
+  .stat-row{display:flex;align-items:center;gap:6px;}
+  .stat-row.focus .stat-label-row span:first-child::after{content:' ★';color:var(--amber);font-size:11px;}
+  .stat-icon{font-size:14px;flex:none;width:17px;text-align:center;}
+  .stat-body{flex:1;min-width:0;}
+  .stat-label-row{display:flex;justify-content:space-between;font-size:12px;opacity:.7;}
+  .stat-track{height:6px;background:var(--outline);border:1px solid var(--outline);margin-top:2px;}
+  .stat-fill{height:100%;transition:width .5s ease;}
+  .stat-fill.hogar{background:var(--hogar);} .stat-fill.vitalidad{background:var(--vitalidad);}
+  .stat-fill.mente{background:var(--mente);} .stat-fill.alegria{background:var(--alegria);}
+  .stat-fill.union{background:var(--union);} .stat-fill.jardin{background:var(--jardin);}
+  .burst{position:absolute;inset:0;pointer-events:none;overflow:visible;}
+  .burst span{position:absolute;width:6px;height:6px;top:50%;left:50%;opacity:0;}
+  .char-card.leveling .burst span{animation:pop .6s ease forwards;}
+  @keyframes pop{0%{opacity:1;transform:translate(0,0) scale(1);}100%{opacity:0;transform:var(--tx) scale(.4);}}
+
+  /* ===== SCREEN 3: feed ===== */
+  .forgets{text-align:center;font-size:14px;opacity:.42;margin:14px 0 4px;}
+  .draft-note{border:2px dashed var(--amber-dim);background:rgba(232,163,61,.07);padding:11px 13px;margin-bottom:16px;}
+  .draft-note h3{font-family:'Press Start 2P',monospace;font-size:9px;color:var(--amber);margin:0 0 7px;line-height:1.5;}
+  .draft-note p{margin:0;font-size:15px;opacity:.8;line-height:1.3;}
+  .board-note{font-size:14px;opacity:.5;margin:0 0 12px;line-height:1.3;}
+  .board{display:flex;flex-direction:column;gap:10px;margin-bottom:14px;}
+  .board-item{background:var(--bg-panel);border:2px solid var(--outline);box-shadow:0 3px 0 var(--outline);padding:11px 12px;border-left:5px solid var(--amber);display:flex;gap:10px;align-items:flex-start;}
+  .board-item.fresh{animation:pin .45s cubic-bezier(.2,.9,.3,1.5);}
+  @keyframes pin{0%{transform:scale(.9) rotate(-2deg);opacity:0;}100%{transform:none;opacity:1;}}
+  .board-body{flex:1;min-width:0;}
+  .board-text{font-size:18px;line-height:1.25;}
+  .board-meta{font-size:12px;opacity:.5;margin-top:3px;}
+  .picker-label{font-size:14px;opacity:.6;margin-bottom:6px;}
+  .board-do{flex:none;background:var(--amber);color:var(--ink);border:2px solid var(--outline);box-shadow:0 3px 0 var(--amber-dim);font-family:'VT323',monospace;font-size:15px;padding:7px 11px;cursor:pointer;}
+  .board-do:active{box-shadow:0 1px 0 var(--amber-dim);transform:translateY(2px);}
+  .board-add{width:100%;background:none;border:2px dashed var(--amber-dim);color:var(--amber);font-family:'VT323',monospace;font-size:17px;padding:13px;cursor:pointer;}
+  .board-input{width:100%;background:var(--bg-night);border:2px solid var(--outline);color:var(--parchment);font-family:'VT323',monospace;font-size:19px;padding:11px;margin-bottom:12px;}
+  .board-input::placeholder{color:var(--parchment);opacity:.35;}
+  .stat-picker{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+  .stat-pick{background:var(--bg-panel-raised);border:2px solid var(--outline);color:var(--parchment);font-family:'VT323',monospace;font-size:16px;padding:9px;cursor:pointer;opacity:.55;}
+  .stat-pick.on{opacity:1;border-color:var(--amber);}
+  .feed{display:flex;flex-direction:column;gap:10px;}
+  .feed-empty{font-size:16px;opacity:.45;padding:8px 0;}
+  .feed-item{background:var(--bg-panel);border:2px solid var(--outline);box-shadow:0 3px 0 var(--outline);padding:10px 11px;border-left-width:5px;}
+  .feed-item.ale{border-left-color:var(--ale);} .feed-item.aline{border-left-color:var(--aline);}
+  .feed-line{font-size:17px;line-height:1.35;} .feed-line b{color:var(--amber);}
+  .feed-who.ale{color:var(--ale);} .feed-who.aline{color:var(--aline);}
+  .feed-time{font-size:12px;opacity:.45;margin-top:2px;}
+  .feed-plain{font-size:13px;opacity:.6;margin-top:3px;}
+  .feed-plain b{color:var(--amber);opacity:.85;}
+  .react-bar{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+  .react-btn{background:var(--bg-panel-raised);border:2px solid var(--outline);color:var(--parchment);font-family:'VT323',monospace;font-size:15px;padding:4px 9px;cursor:pointer;}
+  .react-btn.emoji{font-size:17px;padding:3px 8px;}
+  .reactions{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap;align-items:center;}
+  .reaction-chip{background:var(--bg-panel-raised);border:2px solid var(--outline);padding:3px 8px;font-size:15px;animation:chipIn .35s cubic-bezier(.2,.9,.3,1.4);}
+  .reaction-chip.hype{color:var(--amber);} .reaction-chip.letter{color:var(--aline);cursor:pointer;}
+  @keyframes chipIn{0%{transform:scale(.4);opacity:0;}100%{transform:scale(1);opacity:1;}}
+
+  /* ===== Primary CTA + tab bar ===== */
+  .bottom{position:fixed;bottom:0;left:0;right:0;display:flex;flex-direction:column;align-items:center;z-index:15;}
+  .cta-wrap{width:100%;max-width:420px;padding:0 16px 10px;background:linear-gradient(to top,var(--bg-night) 62%,transparent);}
+  .cta-inner{display:flex;gap:8px;}
+  .cta{flex:1;font-family:'Press Start 2P',monospace;font-size:12px;color:var(--ink);background:var(--amber);border:2px solid var(--outline);box-shadow:0 5px 0 var(--amber-dim);padding:17px 10px;cursor:pointer;}
+  .cta:active{box-shadow:0 2px 0 var(--amber-dim);transform:translateY(3px);}
+  .cta-secondary{flex:none;width:58px;font-size:22px;background:var(--aline-dim);color:#fff;border:2px solid var(--outline);box-shadow:0 5px 0 #4d2634;cursor:pointer;font-family:'VT323',monospace;}
+  .cta-secondary:active{box-shadow:0 2px 0 #4d2634;transform:translateY(3px);}
+
+  .tabbar{width:100%;max-width:420px;display:flex;background:var(--bg-panel);border-top:2px solid var(--outline);padding-bottom:env(safe-area-inset-bottom);}
+  .tab{flex:1;background:none;border:none;cursor:pointer;padding:9px 4px 11px;color:var(--parchment);font-family:'VT323',monospace;opacity:.45;border-top:3px solid transparent;}
+  .tab.active{opacity:1;border-top-color:var(--amber);background:var(--bg-panel-raised);}
+  .tab-icon{font-size:21px;display:block;}
+  .tab-label{font-size:13px;display:block;margin-top:1px;}
+  .tab-dot{display:inline-block;width:7px;height:7px;background:var(--amber);margin-left:4px;vertical-align:middle;}
+
+  /* ===== Sheets, notifs, letter, chest ===== */
+  .sheet-overlay{position:fixed;inset:0;background:rgba(10,8,20,.72);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s;z-index:20;}
+  .sheet-overlay.open{opacity:1;pointer-events:all;}
+  .sheet{width:100%;max-width:420px;background:var(--bg-panel);border-top:2px solid var(--outline);padding:16px 16px calc(20px + env(safe-area-inset-bottom));transform:translateY(100%);transition:transform .3s cubic-bezier(.2,.8,.3,1.1);max-height:82vh;overflow-y:auto;}
+  .sheet-overlay.open .sheet{transform:translateY(0);}
+  .sheet-title{font-family:'Press Start 2P',monospace;font-size:11px;color:var(--amber);margin-bottom:14px;line-height:1.6;}
+  .cat-group{margin-bottom:16px;}
+  .cat-header{display:flex;align-items:center;gap:6px;font-size:14px;margin-bottom:8px;opacity:.85;}
+  .cat-dot{width:9px;height:9px;flex:none;}
+  .cat-dot.hogar{background:var(--hogar);} .cat-dot.vitalidad{background:var(--vitalidad);}
+  .cat-dot.mente{background:var(--mente);} .cat-dot.alegria{background:var(--alegria);}
+  .cat-dot.union{background:var(--union);} .cat-dot.jardin{background:var(--jardin);}
+  .focus-tag{margin-left:auto;font-size:12px;color:var(--amber);border:2px solid var(--amber-dim);padding:1px 6px;}
+  .task-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .task-tile{background:var(--bg-panel-raised);border:2px solid var(--outline);box-shadow:0 3px 0 var(--outline);padding:12px 10px;text-align:left;cursor:pointer;color:var(--parchment);font-family:'VT323',monospace;border-left-width:5px;}
+  .task-tile.hogar{border-left-color:var(--hogar);} .task-tile.vitalidad{border-left-color:var(--vitalidad);}
+  .task-tile.mente{border-left-color:var(--mente);} .task-tile.alegria{border-left-color:var(--alegria);}
+  .task-tile.union{border-left-color:var(--union);} .task-tile.jardin{border-left-color:var(--jardin);}
+  .task-tile:active{box-shadow:0 1px 0 var(--outline);transform:translateY(2px);}
+  .task-icon{font-size:22px;} .task-name{font-size:17px;margin-top:4px;} .task-pts{font-size:13px;margin-top:2px;opacity:.8;}
+  .msg-list{display:flex;flex-direction:column;gap:9px;}
+  .msg-tile{background:var(--bg-panel-raised);border:2px solid var(--outline);box-shadow:0 3px 0 var(--outline);padding:12px;text-align:left;cursor:pointer;color:var(--parchment);font-family:'VT323',monospace;font-size:18px;display:flex;align-items:center;gap:10px;}
+  .msg-tile:active{box-shadow:0 1px 0 var(--outline);transform:translateY(2px);}
+  .msg-tile.love{border-left:5px solid var(--aline);} .msg-tile.hype{border-left:5px solid var(--amber);}
+  .msg-emoji{font-size:22px;flex:none;}
+  .sheet-close{display:block;width:100%;text-align:center;margin-top:12px;background:none;border:2px solid var(--outline);color:var(--parchment);font-family:'VT323',monospace;font-size:16px;padding:10px;cursor:pointer;opacity:.7;}
+
+  .notif-zone{position:fixed;top:14px;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:8px;z-index:30;pointer-events:none;}
+  .notif{width:calc(100% - 32px);max-width:388px;background:var(--bg-panel-raised);border:2px solid var(--outline);box-shadow:0 5px 0 var(--outline);padding:10px 12px;display:flex;align-items:center;gap:10px;transform:translateY(-160%);opacity:0;transition:transform .4s cubic-bezier(.2,.8,.3,1.2),opacity .3s;}
+  .notif.show{transform:translateY(0);opacity:1;}
+  .notif.love{border-color:var(--aline);box-shadow:0 5px 0 var(--aline-dim);}
+  .notif.build{border-color:var(--amber);box-shadow:0 5px 0 var(--amber-dim);}
+  .notif-icon{font-size:22px;flex:none;} .notif-text{font-size:15px;line-height:1.3;} .notif-text b{color:var(--amber);}
+  .notif-sub{font-size:12px;opacity:.55;}
+
+  .letter-overlay{position:fixed;inset:0;background:rgba(10,8,20,.85);display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;pointer-events:none;transition:opacity .3s;z-index:40;}
+  .letter-overlay.open{opacity:1;pointer-events:all;}
+  .letter{width:100%;max-width:340px;background:linear-gradient(#F6EBCD,#E8D8AE);color:#3B2A17;border:3px solid #8A6A3A;box-shadow:0 8px 0 rgba(0,0,0,.5);padding:26px 22px;text-align:center;transform:scale(.7) rotate(-3deg);opacity:0;transition:transform .45s cubic-bezier(.2,.9,.3,1.5),opacity .3s;position:relative;}
+  .letter-overlay.open .letter{transform:scale(1) rotate(0);opacity:1;}
+  .letter::before,.letter::after{content:"";position:absolute;left:-3px;right:-3px;height:10px;background:repeating-linear-gradient(90deg,#8A6A3A 0 6px,transparent 6px 12px);}
+  .letter::before{top:-3px;} .letter::after{bottom:-3px;}
+  .letter-seal{font-size:34px;margin-bottom:10px;}
+  .letter-from{font-size:14px;opacity:.65;margin-bottom:12px;letter-spacing:1px;}
+  .letter-body{font-size:26px;line-height:1.35;}
+  .letter-close{margin-top:18px;background:#8A6A3A;color:#F6EBCD;border:2px solid #5C4523;font-family:'VT323',monospace;font-size:17px;padding:9px 22px;cursor:pointer;}
+
+  .chest-overlay{position:fixed;inset:0;background:rgba(10,8,20,.92);display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;pointer-events:none;transition:opacity .35s;z-index:50;}
+  .chest-overlay.open{opacity:1;pointer-events:all;}
+  .chest-stage{text-align:center;width:100%;max-width:340px;}
+  .chest-icon{font-size:86px;display:inline-block;cursor:pointer;animation:chestIdle 1.6s ease-in-out infinite;background:none;border:none;padding:0;color:inherit;line-height:1;}
+  @keyframes chestIdle{0%,100%{transform:translateY(0) scale(1);}50%{transform:translateY(-7px) scale(1.04);}}
+  .chest-icon.opened{animation:chestBurst .7s cubic-bezier(.2,.9,.3,1.6) forwards;}
+  @keyframes chestBurst{0%{transform:scale(1);}40%{transform:scale(1.3) rotate(-4deg);}100%{transform:scale(1.05);}}
+  .chest-hint{font-size:19px;opacity:.7;margin-top:14px;}
+  .chest-reward{margin-top:18px;background:linear-gradient(#F6EBCD,#E8D8AE);color:#3B2A17;border:3px solid #8A6A3A;box-shadow:0 8px 0 rgba(0,0,0,.5);padding:22px 18px;opacity:0;transform:scale(.8);transition:opacity .4s .25s,transform .5s .25s cubic-bezier(.2,.9,.3,1.5);}
+  .chest-reward.show{opacity:1;transform:scale(1);}
+  .chest-reward-label{font-family:'Press Start 2P',monospace;font-size:9px;letter-spacing:1px;opacity:.7;margin-bottom:12px;}
+  .chest-reward-text{font-size:27px;line-height:1.3;}
+  .chest-close{margin-top:20px;background:var(--amber);color:var(--ink);border:2px solid var(--outline);box-shadow:0 4px 0 var(--amber-dim);font-family:'Press Start 2P',monospace;font-size:10px;padding:13px 20px;cursor:pointer;}
+  .confetti{position:fixed;inset:0;pointer-events:none;z-index:51;overflow:hidden;}
+  .confetti i{position:absolute;width:7px;height:7px;top:-12px;opacity:0;animation:fall 2.4s linear forwards;}
+  @keyframes fall{0%{opacity:1;transform:translateY(0) rotate(0);}100%{opacity:0;transform:translateY(104vh) rotate(540deg);}}
+
+  /* ===== Settings sheet ===== */
+  .set-group{margin-bottom:20px;}
+  .set-group h3{font-family:'Press Start 2P',monospace;font-size:9px;color:var(--amber);margin:0 0 10px;line-height:1.6;}
+  .set-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid rgba(241,228,195,.12);}
+  .set-row:last-child{border-bottom:none;}
+  .set-row label{font-size:16px;flex:1;min-width:0;}
+  .set-seg{display:flex;border:2px solid var(--outline);}
+  .set-seg button{font-family:'VT323',monospace;font-size:14px;padding:6px 10px;border:none;cursor:pointer;background:var(--bg-panel);color:var(--parchment);opacity:.55;min-height:36px;}
+  .set-seg button[aria-pressed="true"]{opacity:1;background:var(--amber-dim);}
+  .set-seg button:focus-visible{outline:2px solid var(--amber);outline-offset:-2px;}
+  .set-num{width:64px;background:var(--bg-night);border:2px solid var(--outline);color:var(--parchment);font-family:'VT323',monospace;font-size:17px;padding:6px;text-align:center;}
+  .set-task{display:flex;align-items:center;gap:8px;padding:6px 0;}
+  .set-task .t-ico{font-size:18px;flex:none;width:22px;text-align:center;}
+  .set-task .t-name{flex:1;min-width:0;font-size:15px;}
+  .set-reward-input{width:100%;background:var(--bg-night);border:2px solid var(--outline);color:var(--parchment);font-family:'VT323',monospace;font-size:15px;padding:8px;margin-bottom:6px;}
+  .set-hint{font-size:13px;opacity:.5;line-height:1.35;margin:4px 0 0;}
+  .set-focus-pick{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .set-focus-pick button{font-family:'VT323',monospace;font-size:14px;padding:8px;border:2px solid var(--outline);background:var(--bg-panel-raised);color:var(--parchment);opacity:.55;cursor:pointer;min-height:40px;}
+  .set-focus-pick button[aria-pressed="true"]{opacity:1;border-color:var(--amber);}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="notif-zone" id="notifZone" aria-live="polite" aria-atomic="false"></div>
+
+  <header class="topbar">
+    <div class="crest pixel"><em>KINGDOM OF</em>SAINT-DIÉ</div>
+    <button class="icon-btn" id="openSettings" type="button" aria-label="Ajustes">⚙️</button>
+  </header>
+
+  <!-- SCREEN 1 -->
+  <section class="screen active" id="screen-kingdom" aria-label="El reino">
+    <div class="kingdom">
+      <div class="map-stage" id="mapStage">
+        <canvas id="mapCanvas" role="img"
+          aria-label="Mapa del reino. Se agranda al registrar hazañas. Arrastra para explorar."></canvas>
+        <p class="map-zone" id="mapZone" aria-hidden="true"></p>
+        <button class="map-daynight" id="mapDayNight" type="button" aria-pressed="true"
+          aria-label="Cambiar entre día y noche">🌙</button>
+        <p class="map-hint" id="mapHint">Arrastra para recorrer el reino</p>
+        <p class="map-loading" id="mapLoading">Levantando el reino…</p>
+      </div>
+      <div class="prosperity-track" role="progressbar" id="prospBar"
+        aria-label="Prosperidad del reino" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="prosperity-fill" id="prospFill"></div>
+      </div>
+    </div>
+    <p class="kingdom-line"><b id="prospPts">0</b> <span id="prospLabel"></span></p>
+    <p class="kingdom-sub" id="nextBuild"></p>
+    <div class="draft-note" id="draftNote" hidden>
+      <div class="draft-note-row">
+        <h3 id="draftTitle"></h3>
+        <button class="draft-dismiss" id="draftDismiss" type="button" aria-label="Descartar">✕</button>
+      </div>
+      <p id="draftBody"></p>
+    </div>
+    <div class="mod-strip" id="modStrip">
+      <span class="mod-icon" id="modIcon" aria-hidden="true"></span>
+      <span class="mod-text" id="modText"></span>
+    </div>
+  </section>
+
+  <!-- SCREEN 2 -->
+  <section class="screen" id="screen-us">
+    <h2 class="screen-title" id="usTitle"></h2>
+    <div class="moods" id="moods"></div>
+    <div class="team" id="team"></div>
+  </section>
+
+  <!-- SCREEN 3 -->
+  <section class="screen" id="screen-log">
+    <h2 class="screen-title" id="logTitle"></h2>
+    <div class="feed" id="feed"></div>
+    <div class="forgets" id="forgets"></div>
+  </section>
+
+  <section class="screen" id="screen-board">
+    <h2 class="screen-title" id="boardTitle"></h2>
+    <p class="board-note" id="boardNote"></p>
+    <div class="board" id="board"></div>
+    <button class="board-add" id="boardAdd"></button>
+  </section>
+
+  <div class="bottom">
+    <div class="cta-wrap"><div class="cta-inner">
+      <button class="cta" id="openSheet" type="button"></button>
+      <button class="cta-secondary" id="openMsg" type="button" aria-label="Enviar un mensaje">💌</button>
+    </div></div>
+    <nav class="tabbar" aria-label="Secciones">
+      <button class="tab active" type="button" data-screen="kingdom" aria-current="page"><span class="tab-icon" aria-hidden="true">🏰</span><span class="tab-label" id="tabKingdom"></span></button>
+      <button class="tab" data-screen="us"><span class="tab-icon">👑</span><span class="tab-label" id="tabUs"></span><span id="usDot"></span></button>
+      <button class="tab" data-screen="board"><span class="tab-icon">📋</span><span class="tab-label" id="tabBoard"></span><span id="boardDot"></span></button>
+      <button class="tab" data-screen="log"><span class="tab-icon">📜</span><span class="tab-label" id="tabLog"></span><span id="logDot"></span></button>
+    </nav>
+  </div>
+
+  <div class="sheet-overlay" id="taskOverlay"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="taskSheetTitle">
+    <div class="sheet-title pixel" id="taskSheetTitle"></div><div id="sheetBody"></div>
+    <button class="sheet-close" id="closeTask" type="button"></button>
+  </div></div>
+  <div class="sheet-overlay" id="msgOverlay"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="msgSheetTitle">
+    <div class="sheet-title pixel" id="msgSheetTitle"></div><div class="msg-list" id="msgBody"></div>
+    <button class="sheet-close" id="closeMsg" type="button"></button>
+  </div></div>
+  <div class="sheet-overlay" id="moodOverlay"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="moodSheetTitle">
+    <div class="sheet-title pixel" id="moodSheetTitle"></div><div class="msg-list" id="moodBody"></div>
+    <button class="sheet-close" id="closeMood" type="button"></button>
+  </div></div>
+  <div class="sheet-overlay" id="boardOverlay"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="boardSheetTitle">
+    <div class="sheet-title pixel" id="boardSheetTitle"></div>
+    <input class="board-input" id="boardInput" type="text" maxlength="70">
+    <div class="stat-picker" id="statPicker"></div>
+    <button class="cta" id="boardPost" style="width:100%"></button>
+    <button class="sheet-close" id="closeBoard"></button>
+  </div></div>
+
+  <div class="sheet-overlay" id="settingsOverlay"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="sheet-title pixel" id="settingsTitle"></div>
+    <div id="settingsBody"></div>
+    <button class="sheet-close" id="closeSettings"></button>
+  </div></div>
+
+  <div class="letter-overlay" id="letterOverlay"><div class="letter" role="dialog" aria-modal="true" aria-labelledby="letterBody">
+    <div class="letter-seal" aria-hidden="true">💌</div><div class="letter-from" id="letterFrom"></div>
+    <div class="letter-body" id="letterBody"></div>
+    <button class="letter-close" id="letterClose" type="button"></button>
+  </div></div>
+  <div class="chest-overlay" id="chestOverlay"><div class="chest-stage" role="dialog" aria-modal="true" aria-label="Cofre del reino">
+    <button class="chest-icon" id="chestIcon" type="button" aria-label="Abrir el cofre">🎁</button>
+    <div class="chest-hint" id="chestHint"></div>
+    <div class="chest-reward" id="chestReward">
+      <div class="chest-reward-label pixel" id="chestRewardLabel"></div>
+      <div class="chest-reward-text" id="chestRewardText"></div>
+    </div>
+    <button class="chest-close pixel" id="chestClose" type="button" style="display:none"></button>
+  </div></div>
+</div>
+
+<script src="map-engine.js"></script>
+<script src="supabase-client.js" defer></script>
+<script>
+const UI = {
+  es:{
+    subtitle:'Alejandro & Aline — Reino', prospLabel:'de prosperidad',
+    nextBuild:'Próxima construcción: ', kingdomFull:'El reino está completo',
+    whoLabel:'¿Quién usa la app?', feedHead:'CRÓNICAS DEL REINO',
+    feedEmpty:'Las crónicas están en blanco. La historia aguarda.',
+    logBtn:'＋ REGISTRAR', taskSheetTitle:'¿QUÉ HA HECHO SU MAJESTAD?',
+    msgSheetTitle:'ENVIAR UN MENSAJE', cancel:'Cancelar',
+    noActions:'Aún sin hazañas.', justNow:'ahora mismo',
+    lvl:'Nv.', letterFrom:'Carta de', letterClose:'Cerrar', ownAction:'(tuya)',
+    classAle:'Rey y cómplice', classAline:'Reina y cómplice',
+    notifSub:'Notificación en el móvil de', sentYou:'te envió',
+    built:'Nueva construcción: ', doubled:' (x2 por el pacto)',
+    chestHint:'Toca el cofre para abrirlo', chestLabel:'DECRETO REAL', chestClose:'RECLAMAR',
+    chestNotif:'¡El reino resplandece! Un cofre os espera',
+    footnote:'Prototipo — el selector simula el móvil de cada uno.\nEn la app real cada quien tiene su sesión y su idioma.',
+    moodSheetTitle:'¿CÓMO ESTÁS AHORA?', careSheetTitle:'MANDARLE ÁNIMO',
+    moodMine:'Tú', moodChange:'Tocar para cambiar', moodSupport:'Tocar para mandarle ánimo',
+    focusTag:'FOCO ×1.5', focusNote:'Foco de la temporada',
+    moodSet:'ahora está', careSent:'te mandó ánimo',
+    tabKingdom:'Reino', tabUs:'Nosotros', tabLog:'Crónicas',
+    usTitle:'NOSOTROS', logTitle:'CRÓNICAS DEL REINO',
+    tapKingdom:'Toca el reino para ver el detalle',
+    reliefOn:'Relevo activo ×1.5', reliefSub:'está de bajón. Lo que hagas hoy vale más.',
+    restOn:'Hoy no se gobierna', restSub:'Los dos estáis a media asta. La meta baja a ',
+    careXp:'Cuidar cuenta: ', careGain:' de Unión',
+    modNone:'Sin modificadores hoy',
+    forgets:'Las crónicas se borran solas cada semana.',
+    draftTitle:'ESTO ESTÁ A MEDIAS — A PROPÓSITO',
+    draftBody:'Las tareas, los puntos, los focos y lo que hay en el cofre están sin decidir. Eso lo elegís los dos.',
+    tabBoard:'Tablón', boardTitle:'ENCARGOS DEL REINO',
+    boardEmpty:'El tablón está vacío. Nadie debe nada a nadie.',
+    boardAdd:'＋ AÑADIR ENCARGO', boardSheet:'¿QUÉ NECESITA EL REINO?',
+    boardPlaceholder:'Ej: cambiar la bombilla del pasillo',
+    boardPost:'CLAVAR EN EL TABLÓN', boardDone:'Hecho',
+    boardBy:'puesto por ', boardNew:'ha clavado un encargo en el tablón:',
+    boardAnyone:'Cosas que hay que hacer. Ya se verá quién.',
+    boardPoints:'Puntos:', boardCleared:'ha resuelto un encargo del tablón',
+    moodReply:'Tocar para responder',
+    b1:'la Cabaña', b2:'el Pozo', b3:'la Granja', b4:'la Torre', b5:'el Puente', b6:'las Murallas', b7:'el Castillo',
+  },
+  fr:{
+    subtitle:'Alejandro & Aline — Royaume', prospLabel:'de prospérité',
+    nextBuild:'Prochaine construction : ', kingdomFull:'Le royaume est complet',
+    whoLabel:'Qui utilise l\'appli ?', feedHead:'CHRONIQUES DU ROYAUME',
+    feedEmpty:'Les chroniques sont vides. L\'histoire attend.',
+    logBtn:'＋ ENREGISTRER', taskSheetTitle:'QU\'A FAIT SA MAJESTÉ ?',
+    msgSheetTitle:'ENVOYER UN MESSAGE', cancel:'Annuler',
+    noActions:'Pas encore d\'exploit.', justNow:'à l\'instant',
+    lvl:'Niv.', letterFrom:'Lettre de', letterClose:'Fermer', ownAction:'(le tien)',
+    classAle:'Roi et complice', classAline:'Reine et complice',
+    notifSub:'Notification sur le téléphone de', sentYou:'t\'a envoyé',
+    built:'Nouvelle construction : ', doubled:' (x2 grâce au pacte)',
+    chestHint:'Touche le coffre pour l\'ouvrir', chestLabel:'DÉCRET ROYAL', chestClose:'RÉCLAMER',
+    chestNotif:'Le royaume rayonne ! Un coffre vous attend',
+    footnote:'Prototype — le sélecteur simule le téléphone de chacun.\nDans la vraie appli, chacun a sa session et sa langue.',
+    moodSheetTitle:'COMMENT TU VAS LÀ ?', careSheetTitle:'LUI ENVOYER DU COURAGE',
+    moodMine:'Toi', moodChange:'Toucher pour changer', moodSupport:'Toucher pour l\'encourager',
+    focusTag:'FOCUS ×1.5', focusNote:'Focus de la saison',
+    moodSet:'est maintenant', careSent:'t\'a envoyé du courage',
+    tabKingdom:'Royaume', tabUs:'Nous', tabLog:'Chroniques',
+    usTitle:'NOUS', logTitle:'CHRONIQUES DU ROYAUME',
+    tapKingdom:'Touche le royaume pour le détail',
+    reliefOn:'Relève active ×1.5', reliefSub:'a un coup de mou. Ce que tu fais aujourd\'hui compte plus.',
+    restOn:'Aujourd\'hui on ne gouverne pas', restSub:'Vous êtes à plat tous les deux. L\'objectif descend à ',
+    careXp:'Prendre soin, ça compte : ', careGain:' de Lien',
+    modNone:'Aucun modificateur aujourd\'hui',
+    forgets:'Les chroniques s\'effacent toutes seules chaque semaine.',
+    draftTitle:'C\'EST INACHEVÉ — EXPRÈS',
+    draftBody:'Les tâches, les points, les focus et le contenu du coffre ne sont pas décidés. Ça, vous le choisissez à deux.',
+    tabBoard:'Tableau', boardTitle:'REQUÊTES DU ROYAUME',
+    boardEmpty:'Le tableau est vide. Personne ne doit rien à personne.',
+    boardAdd:'＋ AJOUTER UNE REQUÊTE', boardSheet:'DE QUOI LE ROYAUME A BESOIN ?',
+    boardPlaceholder:'Ex : changer l\'ampoule du couloir',
+    boardPost:'AFFICHER AU TABLEAU', boardDone:'Fait',
+    boardBy:'affiché par ', boardNew:'a affiché une requête au tableau :',
+    boardAnyone:'Des choses à faire. On verra bien qui.',
+    boardPoints:'Points :', boardCleared:'a réglé une requête du tableau',
+    moodReply:'Toucher pour répondre',
+    b1:'la Cabane', b2:'le Puits', b3:'la Ferme', b4:'la Tour', b5:'le Pont', b6:'les Remparts', b7:'le Château',
+  },
+  en:{
+    subtitle:'Alejandro & Aline — Realm', prospLabel:'prosperity',
+    nextBuild:'Next build: ', kingdomFull:'The realm is complete',
+    whoLabel:'Who\'s using the app?', feedHead:'CHRONICLES OF THE REALM',
+    feedEmpty:'The chronicles are blank. History awaits.',
+    logBtn:'＋ LOG A DEED', taskSheetTitle:'WHAT HAS YOUR MAJESTY DONE?',
+    msgSheetTitle:'SEND A MESSAGE', cancel:'Cancel',
+    noActions:'No deeds yet.', justNow:'just now',
+    lvl:'Lv.', letterFrom:'Letter from', letterClose:'Close', ownAction:'(yours)',
+    classAle:'King and accomplice', classAline:'Queen and accomplice',
+    notifSub:'Notification on the phone of', sentYou:'sent you',
+    built:'New build: ', doubled:' (x2 from the pact)',
+    chestHint:'Tap the chest to open it', chestLabel:'ROYAL DECREE', chestClose:'CLAIM',
+    chestNotif:'The realm is thriving! A chest awaits you',
+    footnote:'Prototype — the switch simulates each phone.\nIn the real app each of you has your own session and language.',
+    moodSheetTitle:'HOW ARE YOU RIGHT NOW?', careSheetTitle:'SEND THEM SOME STRENGTH',
+    moodMine:'You', moodChange:'Tap to change', moodSupport:'Tap to send strength',
+    focusTag:'FOCUS ×1.5', focusNote:'Focus of the season',
+    moodSet:'is now', careSent:'sent you strength',
+    tabKingdom:'Realm', tabUs:'Us', tabLog:'Chronicles',
+    usTitle:'US', logTitle:'CHRONICLES OF THE REALM',
+    tapKingdom:'Tap the realm for detail',
+    reliefOn:'Relief active ×1.5', reliefSub:'is having a rough one. What you do today counts for more.',
+    restOn:'No governing today', restSub:'You\'re both running low. The goal drops to ',
+    careXp:'Caring counts: ', careGain:' Bond',
+    modNone:'No modifiers today',
+    forgets:'The chronicles erase themselves every week.',
+    draftTitle:'THIS IS HALF-FINISHED — ON PURPOSE',
+    draftBody:'The tasks, points, focus and chest contents are undecided. That part is for the two of you.',
+    tabBoard:'Board', boardTitle:'REQUESTS OF THE REALM',
+    boardEmpty:'The board is empty. Nobody owes anybody anything.',
+    boardAdd:'＋ ADD A REQUEST', boardSheet:'WHAT DOES THE REALM NEED?',
+    boardPlaceholder:'e.g. change the hallway bulb',
+    boardPost:'PIN TO THE BOARD', boardDone:'Done',
+    boardBy:'posted by ', boardNew:'pinned a request to the board:',
+    boardAnyone:'Things that need doing. We\'ll see who.',
+    boardPoints:'Points:', boardCleared:'cleared a request from the board',
+    moodReply:'Tap to reply',
+    b1:'the Cabin', b2:'the Well', b3:'the Farm', b4:'the Tower', b5:'the Bridge', b6:'the Walls', b7:'the Castle',
+  }
+};
+
+const STATS = {
+  hogar:{icon:'🏠',es:'Hogar',fr:'Foyer',en:'Home'},
+  vitalidad:{icon:'💪',es:'Vitalidad',fr:'Vitalité',en:'Vitality'},
+  mente:{icon:'📚',es:'Mente',fr:'Esprit',en:'Mind'},
+  alegria:{icon:'✨',es:'Alegría',fr:'Joie',en:'Joy'},
+  union:{icon:'💞',es:'Unión',fr:'Lien',en:'Bond'},
+  jardin:{icon:'🌿',es:'Jardín',fr:'Jardin',en:'Garden'},
+};
+
+/* Focus of the season — what you two decided you need most right now.
+   Tasks in these attributes are worth more. Change this list and the
+   whole economy of the game shifts with it. */
+const FOCUS = ['vitalidad','union'];
+const FOCUS_MULT = 1.5;
+
+const TASKS = [
+  {id:'aspirar',icon:'🧹',pts:4,stat:'hogar',es:'Aspirar',fr:'Passer l\'aspirateur',en:'Vacuum'},
+  {id:'lavar',icon:'🧺',pts:3,stat:'hogar',es:'Lavar ropa',fr:'Faire la lessive',en:'Laundry'},
+  {id:'tender',icon:'👕',pts:2,stat:'hogar',es:'Tender ropa',fr:'Étendre le linge',en:'Hang laundry'},
+  {id:'cocinar',icon:'🍳',pts:5,stat:'hogar',es:'Cocinar',fr:'Cuisiner',en:'Cook'},
+  {id:'platos',icon:'🍽️',pts:3,stat:'hogar',es:'Platos',fr:'Vaisselle',en:'Dishes'},
+  {id:'basura',icon:'🗑️',pts:2,stat:'hogar',es:'Sacar basura',fr:'Sortir la poubelle',en:'Take out trash'},
+  {id:'compra',icon:'🛒',pts:4,stat:'hogar',es:'Ir de compra',fr:'Faire les courses',en:'Groceries'},
+  {id:'bano',icon:'🚿',pts:5,stat:'hogar',es:'Limpiar baño',fr:'Nettoyer la salle de bain',en:'Clean bathroom'},
+  {id:'ejercicio',icon:'🏋️',pts:5,stat:'vitalidad',es:'Ejercicio',fr:'Sport',en:'Workout'},
+  {id:'dientes',icon:'🪥',pts:1,stat:'vitalidad',es:'Lavarse dientes',fr:'Se brosser les dents',en:'Brush teeth'},
+  {id:'dormir',icon:'😴',pts:2,stat:'vitalidad',es:'Dormir bien',fr:'Bien dormir',en:'Good sleep'},
+  {id:'caminar',icon:'🚶',pts:3,stat:'vitalidad',es:'Caminar',fr:'Marcher',en:'Walk'},
+  {id:'leer',icon:'📖',pts:4,stat:'mente',es:'Leer',fr:'Lire',en:'Read'},
+  {id:'aprender',icon:'🧠',pts:4,stat:'mente',es:'Aprender algo',fr:'Apprendre un truc',en:'Learn something'},
+  {id:'jugar',icon:'🎮',pts:3,stat:'alegria',es:'Jugar un rato',fr:'Jouer un peu',en:'Play a game'},
+  {id:'hobby',icon:'🎨',pts:3,stat:'alegria',es:'Hobby',fr:'Loisir créatif',en:'Hobby'},
+  {id:'peli',icon:'🎬',pts:3,stat:'alegria',es:'Ver algo juntos',fr:'Regarder un truc ensemble',en:'Watch something together'},
+  {id:'musica',icon:'🎧',pts:2,stat:'alegria',es:'Escuchar música a gusto',fr:'Écouter de la musique',en:'Listen to music'},
+  {id:'paseojuntos',icon:'🌙',pts:5,stat:'union',es:'Pasear juntos',fr:'Se promener ensemble',en:'Walk together'},
+  {id:'cenasinmovil',icon:'🕯️',pts:5,stat:'union',es:'Cenar sin móviles',fr:'Dîner sans téléphones',en:'Dinner with no phones'},
+  {id:'cocinarjuntos',icon:'👩‍🍳',pts:5,stat:'union',es:'Cocinar juntos',fr:'Cuisiner ensemble',en:'Cook together'},
+  {id:'hablar',icon:'💬',pts:4,stat:'union',es:'Hablar de verdad',fr:'Se parler vraiment',en:'Really talk'},
+  {id:'abrazo',icon:'🫂',pts:2,stat:'union',es:'Abrazo largo',fr:'Un long câlin',en:'Long hug'},
+  {id:'plan',icon:'🗺️',pts:4,stat:'union',es:'Planear algo juntos',fr:'Prévoir un truc ensemble',en:'Plan something together'},
+
+  {id:'regar',icon:'💧',pts:3,stat:'jardin',es:'Regar las plantas',fr:'Arroser les plantes',en:'Water the plants'},
+  {id:'calathea',icon:'🪴',pts:3,stat:'jardin',es:'Cuidar una planta pachucha',fr:'Soigner une plante mal en point',en:'Nurse a struggling plant'},
+  {id:'balcon',icon:'🌱',pts:4,stat:'jardin',es:'Atender el balcón',fr:'S\'occuper du balcon',en:'Tend the balcony'},
+  {id:'cosechar',icon:'🌿',pts:4,stat:'jardin',es:'Cosechar hierbas para cocinar',fr:'Récolter des herbes pour cuisiner',en:'Harvest herbs for cooking'},
+  {id:'plantanueva',icon:'🌻',pts:5,stat:'jardin',es:'Plantar algo nuevo',fr:'Planter quelque chose de nouveau',en:'Plant something new'},
+  {id:'gato',icon:'🐈',pts:2,stat:'jardin',es:'Salvar una planta del gato',fr:'Sauver une plante du chat',en:'Save a plant from the cat'},
+];
+
+/* States — what's going on inside. No points: this isn't a deed, it's a signal. */
+const MOODS = [
+  {id:'m0',emoji:'🙂',es:'Todo bien',fr:'Ça va',en:'All good',care:false},
+  {id:'m1',emoji:'😤',es:'Puto trabajo',fr:'Putain de boulot',en:'Work is hell',care:true},
+  {id:'m2',emoji:'🥱',es:'Reventado',fr:'Crevé·e',en:'Wiped out',care:true},
+  {id:'m3',emoji:'🌫️',es:'Bajón',fr:'Coup de mou',en:'Low',care:true},
+  {id:'m4',emoji:'🌿',es:'CBD y calma',fr:'CBD et calme',en:'CBD and calm',care:false},
+  {id:'m5',emoji:'🔋',es:'Con energía',fr:'Plein·e d\'énergie',en:'Full of energy',care:false},
+  {id:'m6',emoji:'🫠',es:'Necesito mimos',fr:'Besoin de câlins',en:'Need cuddles',care:true},
+  {id:'m7',emoji:'🎉',es:'De buen rollo',fr:'De bonne humeur',en:'In a great mood',care:false},
+  {id:'m8',emoji:'😈',es:'Con ganas de travesuras',fr:'D\'humeur espiègle',en:'Feeling mischievous',care:false},
+  {id:'m9',emoji:'✈️',es:'¿Vamos a Singapur?',fr:'On va à Singapour ?',en:'Shall we go to Singapore?',care:false,replies:'singapur'},
+];
+
+/* Replies to the Singapore state. No points, no record — like everything
+   that matters. Saying no is a first-class option here, on purpose. */
+const SINGAPUR = [
+  {id:'s1',emoji:'🛫',es:'Voy para allá.',fr:'J\'arrive.',en:'On my way.'},
+  {id:'s2',emoji:'⏳',es:'Dame diez minutos.',fr:'Donne-moi dix minutes.',en:'Give me ten minutes.'},
+  {id:'s3',emoji:'🌙',es:'Esta noche.',fr:'Ce soir.',en:'Tonight.'},
+  {id:'s4',emoji:'😴',es:'Hoy no, mi amor. Mañana sí.',fr:'Pas aujourd\'hui, mon amour. Demain oui.',en:'Not today, my love. Tomorrow yes.'},
+  {id:'s5',emoji:'😏',es:'Llevo pensándolo desde esta mañana.',fr:'J\'y pense depuis ce matin.',en:'I\'ve been thinking about it since this morning.'},
+];
+
+/* What you send when the other one is having a rough time */
+const CARE = [
+  {id:'c1',emoji:'💪',es:'Fuerza amor, eres la mejor.',fr:'Courage mon amour, t\'es la meilleure.',en:'Hang in there love, you\'re the best.'},
+  {id:'c2',emoji:'🫂',es:'Ven que te abrazo.',fr:'Viens là que je te serre fort.',en:'Come here, let me hold you.'},
+  {id:'c3',emoji:'🍽️',es:'Hoy no cocinas tú. Orden real.',fr:'Ce soir tu ne cuisines pas. Ordre royal.',en:'You\'re not cooking tonight. Royal order.'},
+  {id:'c4',emoji:'📜',es:'Decreto: hoy no se te exige nada.',fr:'Décret : aujourd\'hui on ne te demande rien.',en:'Decree: nothing is asked of you today.'},
+  {id:'c5',emoji:'👑',es:'El reino aguanta, tú descansa.',fr:'Le royaume tient bon, repose-toi.',en:'The realm holds. You rest.'},
+  {id:'c6',emoji:'⚔️',es:'Dime quién ha sido y mando la caballería.',fr:'Dis-moi qui c\'est et j\'envoie la cavalerie.',en:'Tell me who it was and I\'ll send the cavalry.'},
+  {id:'c7',emoji:'🛌',es:'Hoy abdicamos los dos.',fr:'Aujourd\'hui on abdique tous les deux.',en:'Today we both abdicate.'},
+];
+
+const QUICK = ['👏','🔥','😍','🙌'];
+const HYPE = [
+  {id:'h1',emoji:'📯',es:'Los bardos cantarán esta colada.',fr:'Les bardes chanteront cette lessive.',en:'The bards will sing of this laundry.'},
+  {id:'h2',emoji:'👑',es:'La corona te queda bien hoy.',fr:'La couronne te va bien aujourd\'hui.',en:'The crown suits you today.'},
+  {id:'h3',emoji:'🫡',es:'Su Majestad se ha lucido.',fr:'Sa Majesté s\'est surpassée.',en:'Your Majesty has outdone yourself.'},
+  {id:'h4',emoji:'😭',es:'El pueblo llora de gratitud. El pueblo soy yo.',fr:'Le peuple pleure de gratitude. Le peuple, c\'est moi.',en:'The people weep with gratitude. The people is me.'},
+  {id:'h5',emoji:'📜',es:'Esto entra en los libros de historia.',fr:'Ça entre dans les livres d\'histoire.',en:'This goes in the history books.'},
+  {id:'h6',emoji:'🤨',es:'El consejo real está perplejo. Nadie lo esperaba.',fr:'Le conseil royal est perplexe. Personne ne s\'y attendait.',en:'The royal council is baffled. Nobody saw this coming.'},
+  {id:'h7',emoji:'🏛️',es:'Se erigirá una estatua. Pequeña, pero se erigirá.',fr:'On érigera une statue. Petite, mais on l\'érigera.',en:'A statue shall be raised. A small one, but raised.'},
+  {id:'h8',emoji:'🔔',es:'Que suenen las campanas del reino.',fr:'Que sonnent les cloches du royaume.',en:'Let the bells of the realm ring.'},
+  {id:'h9',emoji:'😏',es:'La corte aprueba. La corte también quiere premio.',fr:'La cour approuve. La cour veut aussi sa récompense.',en:'The court approves. The court also wants a reward.'},
+];
+const LETTERS = [
+  {id:'l1',es:'Te amo.',fr:'Je t\'aime.',en:'I love you.'},
+  {id:'l2',es:'Gracias por todo lo que haces.',fr:'Merci pour tout ce que tu fais.',en:'Thank you for everything you do.'},
+  {id:'l3',es:'Qué suerte tengo contigo.',fr:'J\'ai tellement de chance avec toi.',en:'I\'m so lucky to have you.'},
+  {id:'l4',es:'Pienso en ti ahora mismo.',fr:'Je pense à toi là, maintenant.',en:'I\'m thinking of you right now.'},
+  {id:'l5',es:'Contigo la casa es hogar.',fr:'Avec toi, la maison devient un foyer.',en:'With you, the house is a home.'},
+];
+
+/* Rewards you both write in advance — the chest is a promise you made each other */
+const REWARDS = [
+  {id:'r1',es:'Cena fuera, la elige quien menos eligió la última vez.',fr:'Resto ce week-end — c\'est l\'autre qui choisit.',en:'Dinner out — the other one picks.'},
+  {id:'r2',es:'Noche de peli con manta y sin móviles.',fr:'Soirée film sous le plaid, sans téléphones.',en:'Movie night under a blanket, no phones.'},
+  {id:'r3',es:'Desayuno en la cama el domingo.',fr:'Petit-déj au lit dimanche.',en:'Breakfast in bed on Sunday.'},
+  {id:'r4',es:'Excursión de un día donde diga quien abrió el cofre.',fr:'Une journée d\'excursion, choisie par celui qui a ouvert le coffre.',en:'A day trip, chosen by whoever opened the chest.'},
+  {id:'r5',es:'Un domingo entero sin obligaciones. Decreto real, irrevocable.',fr:'Un dimanche entier sans obligations. Décret royal, irrévocable.',en:'A whole Sunday with no obligations. Royal decree, irrevocable.'},
+  {id:'r6',es:'El otro te debe un masaje. Sin excusas.',fr:'L\'autre te doit un massage. Sans excuses.',en:'The other owes you a massage. No excuses.'},
+];
+
+/* Hitos del reino: al cruzar cada umbral de prosperidad aparece algo nuevo
+   en el mapa. Los textos b1..b7 viven en UI. El mapa (KingdomMap) tiene su
+   propio detalle fino; esto solo alimenta la línea "próxima construcción"
+   y las notificaciones. */
+const MILESTONES = [
+  {k:'b1',at:6},  {k:'b2',at:16}, {k:'b3',at:30}, {k:'b4',at:46},
+  {k:'b5',at:62}, {k:'b6',at:78}, {k:'b7',at:100},
+];
+
+
+
+/* The joke lives here: ordinary acts, narrated as affairs of state.
+   {R} is replaced by El Rey / La Reina in the reader's language. */
+const CRONICAS = {
+  aspirar:{es:'{R} ha purgado el suelo de las hordas de polvo.',fr:'{R} a purgé le sol des hordes de poussière.',en:'{R} has purged the floors of the dust hordes.'},
+  lavar:{es:'{R} ha sometido la ropa a las aguas sagradas.',fr:'{R} a soumis le linge aux eaux sacrées.',en:'{R} has submitted the garments to the sacred waters.'},
+  tender:{es:'{R} ha colgado los estandartes del reino a secar.',fr:'{R} a suspendu les étendards du royaume à sécher.',en:'{R} has hung the banners of the realm to dry.'},
+  cocinar:{es:'{R} ha invocado un banquete de la nada.',fr:'{R} a fait surgir un festin du néant.',en:'{R} has conjured a feast from nothing.'},
+  platos:{es:'{R} ha devuelto la loza a su antiguo esplendor.',fr:'{R} a rendu à la vaisselle sa splendeur d\'antan.',en:'{R} has restored the dishes to their former glory.'},
+  basura:{es:'{R} ha desterrado los desechos más allá de las murallas.',fr:'{R} a banni les déchets au-delà des remparts.',en:'{R} has banished the refuse beyond the walls.'},
+  compra:{es:'{R} ha regresado de tierras lejanas cargado de provisiones.',fr:'{R} est revenu·e de contrées lointaines chargé·e de provisions.',en:'{R} returns from distant lands laden with provisions.'},
+  bano:{es:'{R} ha reconquistado la cámara de agua.',fr:'{R} a reconquis la chambre d\'eau.',en:'{R} has reconquered the water chamber.'},
+  ejercicio:{es:'{R} ha entrenado para guerras que nadie ha declarado.',fr:'{R} s\'est entraîné·e pour des guerres non déclarées.',en:'{R} trained for wars nobody declared.'},
+  dientes:{es:'{R} ha pulido la sonrisa real.',fr:'{R} a poli le sourire royal.',en:'{R} polished the royal smile.'},
+  dormir:{es:'{R} ha dormido como manda la corona.',fr:'{R} a dormi comme l\'exige la couronne.',en:'{R} slept as the crown demands.'},
+  caminar:{es:'{R} ha recorrido sus dominios caminando.',fr:'{R} a parcouru ses terres à pied.',en:'{R} walked the length of the realm.'},
+  leer:{es:'{R} ha consultado los textos prohibidos. Un libro.',fr:'{R} a consulté les textes interdits. Un livre.',en:'{R} consulted the forbidden texts. A book.'},
+  aprender:{es:'{R} ha arrancado un secreto más al universo.',fr:'{R} a arraché un secret de plus à l\'univers.',en:'{R} wrested one more secret from the universe.'},
+  jugar:{es:'{R} ha atendido asuntos de máxima frivolidad. Jugando.',fr:'{R} a traité des affaires de haute frivolité. En jouant.',en:'{R} attended to matters of high frivolity. By playing.'},
+  hobby:{es:'{R} ha creado algo con sus manos que nadie le pidió.',fr:'{R} a créé de ses mains un truc que personne n\'avait demandé.',en:'{R} made something by hand that nobody asked for.'},
+  peli:{es:'Las dos coronas han visto algo juntas.',fr:'Les deux couronnes ont regardé un truc ensemble.',en:'Both crowns watched something together.'},
+  musica:{es:'{R} ha convocado a los bardos. Sonaba bien.',fr:'{R} a convoqué les bardes. C\'était pas mal.',en:'{R} summoned the bards. It sounded good.'},
+  paseojuntos:{es:'Ambas coronas han salido a inspeccionar el reino.',fr:'Les deux couronnes sont sorties inspecter le royaume.',en:'Both crowns went out to inspect the realm.'},
+  cenasinmovil:{es:'Se han desterrado los oráculos de bolsillo de la mesa.',fr:'Les oracles de poche ont été bannis de la table.',en:'Pocket oracles were banished from the table.'},
+  cocinarjuntos:{es:'Las dos coronas han conspirado en las cocinas.',fr:'Les deux couronnes ont conspiré aux cuisines.',en:'Both crowns conspired in the kitchens.'},
+  hablar:{es:'Se ha celebrado consejo. Se habló de cosas de peso.',fr:'Un conseil s\'est tenu. On a parlé de choses graves.',en:'A council was held. Weighty things were said.'},
+  abrazo:{es:'Las dos coronas han permanecido abrazadas un buen rato.',fr:'Les deux couronnes sont restées enlacées un bon moment.',en:'Both crowns stayed in an embrace a good while.'},
+  plan:{es:'Se ha planeado una expedición futura.',fr:'Une future expédition a été planifiée.',en:'A future expedition was planned.'},
+  regar:{es:'{R} ha llevado el agua a los súbditos verdes.',fr:'{R} a porté l\'eau aux sujets verts.',en:'{R} has brought water to the green subjects.'},
+  calathea:{es:'{R} ha socorrido a un súbdito verde en horas bajas.',fr:'{R} a secouru un sujet vert en petite forme.',en:'{R} has come to the aid of an ailing green subject.'},
+  balcon:{es:'{R} ha puesto orden en el balcón del reino.',fr:'{R} a mis de l\'ordre au balcon du royaume.',en:'{R} has restored order on the realm\'s balcony.'},
+  cosechar:{es:'{R} ha recaudado el tributo en hierbas de la cocina.',fr:'{R} a perçu le tribut en herbes pour la cuisine.',en:'{R} has collected the herb tribute for the kitchen.'},
+  plantanueva:{es:'{R} ha plantado un nuevo súbdito. Aún sin nombre.',fr:'{R} a planté un nouveau sujet. Encore sans nom.',en:'{R} has planted a new subject. Still unnamed.'},
+  gato:{es:'{R} ha repelido al invasor felino. Por ahora.',fr:'{R} a repoussé l\'envahisseur félin. Pour l\'instant.',en:'{R} has repelled the feline invader. For now.'},
+};
+const TITLES = {
+  ale:{es:'El Rey',fr:'Le Roi',en:'The King'},
+  aline:{es:'La Reina',fr:'La Reine',en:'The Queen'},
+};
+function cronica(who, task, lang){
+  const c = CRONICAS[task.id];
+  if(!c) return NAMES[who];
+  return c[lang].replace('{R}', TITLES[who][lang]);
+}
+
+const XP_PER_LEVEL = 20;
+const PROSPERITY_TARGET = 100;
+const REST_TARGET = 70;
+const RELIEF_MULT = 1.5;
+const RETENTION_DAYS = 7;  // nothing here survives the week. no archive, no ammunition.
+const DAY_MS = 86400000;
+const NAMES = {ale:'Alejandro', aline:'Aline'};
+const ICONS = {ale:'🤴', aline:'👸'};
+
+function freshChar(){
+  const c={};
+  Object.keys(STATS).forEach(k=>c[k]={xp:0,level:1});
+  return c;
+}
+let state = {
+  ale:freshChar(), aline:freshChar(),
+  prosperity:0, who:'ale', lang:'es', screen:'kingdom',
+  feed:[], nextId:1,
+  board:[], nextBoardId:1, unseenBoard:0, pickedStat:'hogar',
+  chestClaimed:false, reactTarget:null,
+  moods:{ale:MOODS[0], aline:MOODS[0]}, moodTarget:null,
+  unseenFeed:0
+};
+
+const $ = id => document.getElementById(id);
+const t = () => UI[state.lang];
+const statName = k => STATS[k][state.lang];
+const taskName = x => x[state.lang];
+const other = w => w==='ale'?'aline':'ale';
+
+/* --- Where the two systems actually touch each other --- */
+// Your partner is low and you are not: covering for them is worth more.
+const reliefFor = w => state.moods[other(w)].care && !state.moods[w].care;
+// Both of you are low: the realm asks less of you this week.
+const restMode = () => state.moods.ale.care && state.moods.aline.care;
+const currentTarget = () => restMode() ? REST_TARGET : PROSPERITY_TARGET;
+const isFocus = k => FOCUS.includes(k);
+function pointsFor(task, who){
+  who = who || state.who;
+  let p = task.pts;
+  if(isFocus(task.stat)) p = Math.round(p*FOCUS_MULT);
+  if(reliefFor(who)) p = Math.round(p*RELIEF_MULT);
+  return p;
+}
+function charLevel(c){return Object.keys(STATS).reduce((s,k)=>s+c[k].level,0)-(Object.keys(STATS).length-1);}
+
+/* ---- navigation ---- */
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    state.screen = tab.dataset.screen;
+    document.querySelectorAll('.tab').forEach(x=>{
+      const on = x===tab;
+      x.classList.toggle('active', on);
+      if(on) x.setAttribute('aria-current','page'); else x.removeAttribute('aria-current');
+    });
+    document.querySelectorAll('.screen').forEach(sc=>sc.classList.toggle('active', sc.id==='screen-'+state.screen));
+    if(state.screen==='log'){ state.unseenFeed=0; renderBadges(); }
+    if(state.screen==='board'){ state.unseenBoard=0; renderBadges(); }
+    window.scrollTo({top:0,behavior:'instant'});
+    if(window.KingdomMap) KingdomMap.setActive(state.screen==='kingdom');
+  });
+});
+// El idioma y el "quién" ya no tienen selector arriba: vienen del perfil
+// (Supabase) o de Ajustes en modo local. renderWho() re-renderiza lo que
+// dependía de quién mira.
+function setLang(lang){ state.lang=lang; document.documentElement.lang=lang; try{localStorage.setItem('ksd_lang',lang);}catch(e){} try{ Backend.lang(lang); }catch(e){} renderAll(); }
+function renderWho(){
+  renderMods(); renderMoods(); renderFeed(); renderTaskSheet(); renderBadges();
+}
+$('openSheet').addEventListener('click',()=>$('taskOverlay').classList.add('open'));
+$('closeTask').addEventListener('click',()=>$('taskOverlay').classList.remove('open'));
+$('openMsg').addEventListener('click',()=>$('msgOverlay').classList.add('open'));
+$('closeMsg').addEventListener('click',()=>{$('msgOverlay').classList.remove('open');state.reactTarget=null;});
+$('closeMood').addEventListener('click',()=>{$('moodOverlay').classList.remove('open');state.moodTarget=null;});
+['taskOverlay','msgOverlay','moodOverlay'].forEach(id=>{
+  $(id).addEventListener('click',e=>{if(e.target===$(id)){$(id).classList.remove('open');state.reactTarget=null;state.moodTarget=null;}});
+});
+$('letterClose').addEventListener('click',()=>$('letterOverlay').classList.remove('open'));
+$('boardAdd').addEventListener('click',()=>{renderStatPicker();$('boardOverlay').classList.add('open');});
+$('closeBoard').addEventListener('click',()=>$('boardOverlay').classList.remove('open'));
+$('boardOverlay').addEventListener('click',e=>{if(e.target===$('boardOverlay'))$('boardOverlay').classList.remove('open');});
+$('boardPost').addEventListener('click',postQuest);
+$('boardInput').addEventListener('keydown',e=>{if(e.key==='Enter')postQuest();});
+
+/* ---- settings sheet ---- */
+$('openSettings').addEventListener('click',()=>{ renderSettings(); openDialog('settingsOverlay'); });
+$('closeSettings').addEventListener('click',()=>closeDialog('settingsOverlay'));
+$('settingsOverlay').addEventListener('click',e=>{ if(e.target===$('settingsOverlay')) closeDialog('settingsOverlay'); });
+
+/* ---- half-finished notice: shows once, dismissible for good ---- */
+$('draftDismiss').addEventListener('click',()=>{
+  $('draftNote').hidden = true;
+  try{ localStorage.setItem('ksd_draft_seen','1'); }catch(e){}
+});
+
+/* ---- generic sheet open/close with focus handling (a11y) ---- */
+let lastFocus = null;
+function openDialog(id){
+  lastFocus = document.activeElement;
+  const ov = $(id); ov.classList.add('open');
+  const f = ov.querySelector('button,input,[tabindex]'); if(f) f.focus();
+}
+function closeDialog(id){
+  $(id).classList.remove('open');
+  if(lastFocus && lastFocus.focus) lastFocus.focus();
+}
+// Esc cierra cualquier hoja abierta
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape') return;
+  document.querySelectorAll('.sheet-overlay.open').forEach(o=>o.classList.remove('open'));
+});
+
+/* ---- render ---- */
+function renderChrome(){
+  const T=t();
+  $('prospLabel').textContent=T.prospLabel;
+  $('usTitle').textContent=T.usTitle;
+  $('logTitle').textContent=T.logTitle;
+  $('tabKingdom').textContent=T.tabKingdom;
+  $('tabUs').textContent=T.tabUs;
+  $('tabLog').textContent=T.tabLog;
+  $('openSheet').textContent=T.logBtn;
+  $('taskSheetTitle').textContent=T.taskSheetTitle;
+  $('msgSheetTitle').textContent=T.msgSheetTitle;
+  $('closeTask').textContent=T.cancel;
+  $('closeMsg').textContent=T.cancel;
+  $('closeMood').textContent=T.cancel;
+  $('letterClose').textContent=T.letterClose;
+  $('chestHint').textContent=T.chestHint;
+  $('chestRewardLabel').textContent=T.chestLabel;
+  $('chestClose').textContent=T.chestClose;
+  $('forgets').textContent=T.forgets;
+  $('tabBoard').textContent=T.tabBoard;
+  $('boardTitle').textContent=T.boardTitle;
+  $('boardSheetTitle').textContent=T.boardSheet;
+  $('boardInput').placeholder=T.boardPlaceholder;
+  $('boardPost').textContent=T.boardPost;
+  $('closeBoard').textContent=T.cancel;
+  $('draftTitle').textContent=T.draftTitle;
+  $('draftBody').textContent=T.draftBody;
+  $('settingsTitle').textContent=T.settingsTitle;
+  $('closeSettings').textContent=T.close;
+  $('mapHint').textContent=T.mapHint;
+  let seen=false; try{ seen = localStorage.getItem('ksd_draft_seen')==='1'; }catch(e){}
+  $('draftNote').hidden = seen;
+}
+function renderBadges(){
+  const other = state.who==='ale'?'aline':'ale';
+  $('usDot').innerHTML = state.moods[other].care ? '<span class="tab-dot"></span>' : '';
+  $('logDot').innerHTML = state.unseenFeed>0 ? '<span class="tab-dot"></span>' : '';
+  $('boardDot').innerHTML = state.unseenBoard>0 ? '<span class="tab-dot"></span>' : '';
+}
+function renderKingdom(){
+  const T=t();
+  const pct = Math.min(100, Math.round(state.prosperity/currentTarget()*100));
+  $('prospPts').textContent=state.prosperity;
+  $('prospFill').style.width=pct+'%';
+  const bar=$('prospBar'); bar.setAttribute('aria-valuenow', pct);
+  bar.setAttribute('aria-valuetext', state.prosperity+' — '+pct+'%');
+  const next=MILESTONES.find(b=>state.prosperity<b.at);
+  $('nextBuild').textContent = next ? T.nextBuild+T[next.k]+' · '+next.at : T.kingdomFull;
+  if(window.KingdomMap) KingdomMap.setProsperity(state.prosperity);
+}
+function renderMods(){
+  const T=t(), el=$('modStrip');
+  el.className='mod-strip';
+  if(restMode()){
+    el.classList.add('rest');
+    $('modIcon').textContent='🌙';
+    $('modText').innerHTML='<b>'+T.restOn+'</b> — '+T.restSub+REST_TARGET;
+  } else if(reliefFor(state.who)){
+    el.classList.add('relief');
+    $('modIcon').textContent='🛡️';
+    $('modText').innerHTML='<b>'+T.reliefOn+'</b> — '+NAMES[other(state.who)]+' '+T.reliefSub;
+  } else {
+    el.classList.add('none');
+    $('modIcon').textContent='·';
+    $('modText').textContent=T.modNone;
+  }
+}
+
+function renderMoods(){
+  const T=t(), wrap=$('moods'); wrap.innerHTML='';
+  ['ale','aline'].forEach(who=>{
+    const mine=who===state.who, mood=state.moods[who];
+    const card=document.createElement('button');
+    const invites = !mine && (mood.care || mood.replies);
+    card.className='mood-card '+who+(invites?' needs-care':'');
+    card.innerHTML='<div class="mood-owner">'+(mine?T.moodMine:NAMES[who])+'</div>'+
+      '<div class="mood-value"><span class="mood-emoji">'+mood.emoji+'</span><span>'+mood[state.lang]+'</span></div>'+
+      '<div class="mood-cta">'+(mine?T.moodChange:(mood.replies?T.moodReply:(mood.care?T.moodSupport:'')))+'</div>';
+    card.addEventListener('click',()=>{
+      if(mine){state.moodTarget='self';$('moodSheetTitle').textContent=T.moodSheetTitle;renderMoodSheet('mood');}
+      else if(mood.replies){state.moodTarget=who;$('moodSheetTitle').textContent=mood[state.lang];renderMoodSheet(mood.replies);}
+      else{state.moodTarget=who;$('moodSheetTitle').textContent=T.careSheetTitle;renderMoodSheet('care');}
+      $('moodOverlay').classList.add('open');
+    });
+    wrap.appendChild(card);
+  });
+}
+function renderMoodSheet(kind){
+  const body=$('moodBody'); body.innerHTML='';
+  const list = kind==='mood' ? MOODS : kind==='singapur' ? SINGAPUR : CARE;
+  list.forEach(m=>{
+    const b=document.createElement('button');
+    b.className='msg-tile '+(kind==='mood'?'hype':'love');
+    b.innerHTML='<span class="msg-emoji">'+m.emoji+'</span><span>'+m[state.lang]+'</span>';
+    b.addEventListener('click',()=> kind==='mood'?setMood(m):sendCare(m));
+    body.appendChild(b);
+  });
+}
+function renderTeam(){
+  const T=t(); $('team').innerHTML='';
+  ['ale','aline'].forEach(who=>{
+    const c=state[who];
+    const last=[...state.feed].reverse().find(f=>f.who===who&&f.type==='task');
+    const lastText = last ? last.task.icon+' '+taskName(last.task)+' — +'+last.gained+' '+statName(last.task.stat) : T.noActions;
+    const card=document.createElement('div');
+    card.className='char-card'; card.id='card_'+who;
+    card.innerHTML='<div class="burst" id="burst_'+who+'"></div>'+
+      '<div class="char-top"><div class="avatar '+who+'">'+ICONS[who]+'<div class="lvl-badge pixel">'+charLevel(c)+'</div></div>'+
+      '<div class="char-info"><div class="char-name-row"><span class="char-name '+who+'">'+NAMES[who]+'</span>'+
+      '<span class="char-class">'+(who==='ale'?T.classAle:T.classAline)+'</span></div>'+
+      '<div class="last-action">'+lastText+'</div></div></div><div class="stat-grid"></div>';
+    const grid=card.querySelector('.stat-grid');
+    Object.keys(STATS).forEach(k=>{
+      const st=c[k];
+      const row=document.createElement('div');
+      row.className='stat-row'+(isFocus(k)?' focus':'');
+      row.innerHTML='<div class="stat-icon">'+STATS[k].icon+'</div><div class="stat-body">'+
+        '<div class="stat-label-row"><span>'+statName(k)+'</span><span>'+T.lvl+st.level+'</span></div>'+
+        '<div class="stat-track"><div class="stat-fill '+k+'" style="width:'+(st.xp/XP_PER_LEVEL*100)+'%"></div></div></div>';
+      grid.appendChild(row);
+    });
+    $('team').appendChild(card);
+  });
+}
+function renderTaskSheet(){
+  const body=$('sheetBody'); body.innerHTML='';
+  Object.keys(STATS).forEach(k=>{
+    const g=document.createElement('div'); g.className='cat-group';
+    g.innerHTML='<div class="cat-header"><span class="cat-dot '+k+'"></span>'+STATS[k].icon+' '+statName(k)+
+      (isFocus(k)?'<span class="focus-tag">'+t().focusTag+'</span>':'')+'</div>';
+    const grid=document.createElement('div'); grid.className='task-grid';
+    TASKS.filter(x=>x.stat===k).forEach(task=>{
+      const tile=document.createElement('button'); tile.className='task-tile '+k;
+      tile.innerHTML='<div class="task-icon">'+task.icon+'</div><div class="task-name">'+taskName(task)+'</div>'+
+        '<div class="task-pts">+'+pointsFor(task)+' '+statName(k)+''+'</div>';
+      tile.addEventListener('click',()=>logTask(task));
+      grid.appendChild(tile);
+    });
+    g.appendChild(grid); body.appendChild(g);
+  });
+}
+function renderMsgSheet(){
+  const body=$('msgBody'); body.innerHTML='';
+  LETTERS.forEach(m=>{
+    const b=document.createElement('button'); b.className='msg-tile love';
+    b.innerHTML='<span class="msg-emoji">💌</span><span>'+m[state.lang]+'</span>';
+    b.addEventListener('click',()=>sendLetter(m)); body.appendChild(b);
+  });
+  HYPE.forEach(m=>{
+    const b=document.createElement('button'); b.className='msg-tile hype';
+    b.innerHTML='<span class="msg-emoji">'+m.emoji+'</span><span>'+m[state.lang]+'</span>';
+    b.addEventListener('click',()=>sendHype(m)); body.appendChild(b);
+  });
+}
+function renderBoard(){
+  const T=t(), wrap=$('board');
+  wrap.innerHTML='';
+  $('boardNote').textContent=T.boardAnyone;
+  $('boardAdd').textContent=T.boardAdd;
+  if(!state.board.length){
+    wrap.innerHTML='<div class="feed-empty">'+T.boardEmpty+'</div>';
+    return;
+  }
+  state.board.forEach(q=>{
+    const el=document.createElement('div');
+    el.className='board-item'+(q.fresh?' fresh':'');
+    q.fresh=false;
+    el.innerHTML='<div class="board-body">'+
+      '<div class="board-text">'+STATS[q.stat].icon+' '+q.text+'</div>'+
+      '<div class="board-meta">'+T.boardBy+NAMES[q.by]+' · +'+q.pts+' '+statName(q.stat)+'</div></div>';
+    const btn=document.createElement('button');
+    btn.className='board-do'; btn.textContent='✓ '+T.boardDone;
+    btn.addEventListener('click',()=>completeQuest(q.id));
+    el.appendChild(btn);
+    wrap.appendChild(el);
+  });
+}
+
+function renderStatPicker(){
+  const wrap=$('statPicker'); wrap.innerHTML='';
+  Object.keys(STATS).forEach(k=>{
+    const b=document.createElement('button');
+    b.className='stat-pick'+(state.pickedStat===k?' on':'');
+    b.innerHTML=STATS[k].icon+' '+statName(k);
+    b.addEventListener('click',()=>{state.pickedStat=k;renderStatPicker();});
+    wrap.appendChild(b);
+  });
+}
+
+function postQuest(){
+  const T=t(), text=$('boardInput').value.trim();
+  if(!text) return;
+  const q={id:state.nextBoardId++, text, stat:state.pickedStat, pts:3, by:state.who, fresh:true, ts:Date.now()};
+  state.board.push(q);
+  Backend.boardAdd(q);
+  $('boardInput').value='';
+  $('boardOverlay').classList.remove('open');
+  if(state.screen!=='board') state.unseenBoard++;
+  renderBoard(); renderBadges();
+  notify(state.who,'📋 <b>'+NAMES[state.who]+'</b> '+T.boardNew+
+    '<div style="font-size:14px;margin-top:3px">'+STATS[q.stat].icon+' '+q.text+'</div>','build');
+}
+
+function completeQuest(id){
+  const T=t(), i=state.board.findIndex(q=>q.id===id);
+  if(i<0) return;
+  const q=state.board[i];
+  state.board.splice(i,1);
+
+  // A cleared request is a deed like any other — it feeds the realm.
+  const who=state.who, st=state[who][q.stat];
+  let gained=q.pts;
+  if(isFocus(q.stat)) gained=Math.round(gained*FOCUS_MULT);
+  if(reliefFor(who)) gained=Math.round(gained*RELIEF_MULT);
+  st.xp+=gained;
+  state.prosperity=state.prosperity+gained;  // suma real de 7 días, sin recorte (el mapa crece con ella)
+  let leveled=false;
+  while(st.xp>=XP_PER_LEVEL){st.xp-=XP_PER_LEVEL;st.level++;leveled=true;}
+
+  state.feed.push({id:state.nextId++,type:'quest',who,text:q.text,stat:q.stat,gained,ts:Date.now(),reactions:[]});
+  if(state.screen!=='log') state.unseenFeed++;
+  Backend.boardClose(id);
+  Backend.deed({id:'encargo',stat:q.stat}, gained);   // el encargo resuelto cuenta como hazaña
+
+  renderBoard(); renderKingdom(); renderTeam(); renderFeed(); renderBadges();
+  notify(who,'✅ <b>'+NAMES[who]+'</b> '+T.boardCleared+
+    '<div style="font-size:14px;margin-top:3px">'+q.text+' +'+gained+' '+statName(q.stat)+'</div>',null);
+  if(leveled){
+    const card=$('card_'+who);
+    if(card){card.classList.add('leveling');burst(who);setTimeout(()=>card.classList.remove('leveling'),700);}
+  }
+  if(state.prosperity>=currentTarget()&&!state.chestClaimed) setTimeout(openChest,1600);
+}
+
+function purgeOld(){
+  const cutoff = Date.now() - RETENTION_DAYS*DAY_MS;
+  state.feed = state.feed.filter(f => (f.ts||Date.now()) >= cutoff);
+}
+
+function renderFeed(){
+  purgeOld();
+  const T=t(), feed=$('feed'); feed.innerHTML='';
+  if(!state.feed.length){ feed.innerHTML='<div class="feed-empty">'+T.feedEmpty+'</div>'; return; }
+  [...state.feed].reverse().slice(0,10).forEach(item=>{
+    const el=document.createElement('div'); el.className='feed-item '+item.who;
+    const own=item.who===state.who;
+    let line;
+    if(item.type==='task'){
+      line=item.task.icon+' <span class="feed-who '+item.who+'">'+cronica(item.who,item.task,state.lang)+'</span>'+
+        '<div class="feed-plain">'+NAMES[item.who]+' · '+taskName(item.task)+' <b>+'+item.gained+' '+statName(item.task.stat)+'</b></div>';
+    } else if(item.type==='quest'){
+      line='✅ <span class="feed-who '+item.who+'">'+NAMES[item.who]+'</span> — '+item.text+
+        ' <b>+'+item.gained+' '+statName(item.stat)+'</b>';
+    } else if(item.type==='care'){
+      line='<span class="feed-who '+item.who+'">'+NAMES[item.who]+'</span> '+item.msg.emoji+' <i>'+item.msg[state.lang]+'</i>';
+    } else if(item.type==='letter'){
+      line='<span class="feed-who '+item.who+'">'+NAMES[item.who]+'</span> 💌 <i>'+item.msg[state.lang]+'</i>';
+    } else {
+      line='<span class="feed-who '+item.who+'">'+NAMES[item.who]+'</span> '+item.msg.emoji+' <i>'+item.msg[state.lang]+'</i>';
+    }
+    el.innerHTML='<div class="feed-line">'+line+'</div><div class="feed-time">'+T.justNow+(own?' '+T.ownAction:'')+'</div>';
+    if(item.reactions.length){
+      const w=document.createElement('div'); w.className='reactions';
+      item.reactions.forEach(r=>{
+        const chip=document.createElement('span');
+        if(r.kind==='quick'){chip.className='reaction-chip';chip.textContent=r.emoji;}
+        else if(r.kind==='hype'){chip.className='reaction-chip hype';chip.textContent=r.msg.emoji+' '+r.msg[state.lang];}
+        else{chip.className='reaction-chip letter';chip.textContent='💌';chip.addEventListener('click',()=>openLetter(r.from,r.msg));}
+        w.appendChild(chip);
+      });
+      el.appendChild(w);
+    }
+    if(item.type==='task'&&!own){
+      const bar=document.createElement('div'); bar.className='react-bar';
+      QUICK.forEach(e=>{
+        const b=document.createElement('button'); b.className='react-btn emoji'; b.textContent=e;
+        b.addEventListener('click',()=>addReaction(item.id,{kind:'quick',emoji:e,from:state.who}));
+        bar.appendChild(b);
+      });
+      const more=document.createElement('button'); more.className='react-btn'; more.textContent='💬';
+      more.addEventListener('click',()=>{state.reactTarget=item.id;$('msgOverlay').classList.add('open');});
+      bar.appendChild(more); el.appendChild(bar);
+    }
+    feed.appendChild(el);
+  });
+}
+function renderAll(){
+  renderChrome(); renderKingdom(); renderMods(); renderMoods(); renderTeam();
+  renderTaskSheet(); renderMsgSheet(); renderBoard(); renderStatPicker(); renderFeed(); renderWho();
+}
+
+/* ---- actions ---- */
+function burst(who){
+  const c=$('burst_'+who); if(!c)return; c.innerHTML='';
+  for(let i=0;i<10;i++){
+    const s=document.createElement('span');
+    const a=(Math.PI*2/10)*i,d=40+Math.random()*20;
+    s.style.setProperty('--tx','translate('+Math.cos(a)*d+'px, '+Math.sin(a)*d+'px)');
+    s.style.background=i%2===0?'var(--amber)':(who==='ale'?'var(--ale)':'var(--aline)');
+    c.appendChild(s);
+  }
+}
+function notify(who,html,kind){
+  const T=t(), other=who==='ale'?'aline':'ale';
+  const n=document.createElement('div');
+  n.className='notif'+(kind?' '+kind:'');
+  const icon = kind==='love'?'💌':kind==='build'?'🏗️':ICONS[who];
+  n.innerHTML='<div class="notif-icon">'+icon+'</div><div><div class="notif-text">'+html+'</div>'+
+    '<div class="notif-sub">'+T.notifSub+' '+NAMES[other]+'</div></div>';
+  $('notifZone').appendChild(n);
+  requestAnimationFrame(()=>n.classList.add('show'));
+  setTimeout(()=>{n.classList.remove('show');setTimeout(()=>n.remove(),400);},3600);
+}
+function logTask(task){
+  $('taskOverlay').classList.remove('open');
+  const T=t(), who=state.who;
+  const gained=pointsFor(task, who);
+  const st=state[who][task.stat];
+  st.xp+=gained;
+  const before=state.prosperity;
+  state.prosperity=state.prosperity+gained;  // suma real de 7 días, sin recorte (el mapa crece con ella)
+  let leveled=false;
+  while(st.xp>=XP_PER_LEVEL){st.xp-=XP_PER_LEVEL;st.level++;leveled=true;}
+  state.feed.push({id:state.nextId++,type:'task',who,task,gained,ts:Date.now(),reactions:[]});
+  if(state.screen!=='log') state.unseenFeed++;
+  Backend.deed(task, gained);
+  renderKingdom(); renderTeam(); renderFeed(); renderTaskSheet(); renderBadges();
+  notify(who,task.icon+' '+cronica(who,task,state.lang)+
+    '<div style="font-size:12px;opacity:.6;margin-top:2px">'+NAMES[who]+' · '+taskName(task)+' +'+gained+' '+statName(task.stat)+'</div>',null);
+  MILESTONES.filter(b=>before<b.at&&state.prosperity>=b.at).forEach((b,i)=>{
+    setTimeout(()=>notify(who,'<b>'+T.built+T[b.k]+'</b>','build'),1200+i*500);
+  });
+  if(leveled){
+    const card=$('card_'+who);
+    if(card){card.classList.add('leveling');burst(who);setTimeout(()=>card.classList.remove('leveling'),700);}
+  }
+  if(state.prosperity>=currentTarget()&&!state.chestClaimed) setTimeout(openChest,1600);
+}
+function addReaction(itemId,reaction){
+  const item=state.feed.find(f=>f.id===itemId); if(!item)return;
+  item.reactions.push(reaction); renderFeed();
+  const T=t();
+  const deedId = (typeof item.id==='string' && item.id[0]==='d') ? +item.id.slice(1) : undefined;
+  Backend.message(reaction.kind, reaction.emoji || (reaction.msg && reaction.msg.id), deedId);
+  if(reaction.kind==='quick') notify(reaction.from,'<b>'+NAMES[reaction.from]+'</b> '+reaction.emoji,null);
+  else if(reaction.kind==='hype') notify(reaction.from,'<b>'+NAMES[reaction.from]+'</b>: '+reaction.msg.emoji+' '+reaction.msg[state.lang],null);
+  else notify(reaction.from,'<b>'+NAMES[reaction.from]+'</b> '+T.sentYou+' 💌','love');
+}
+function sendHype(msg){
+  $('msgOverlay').classList.remove('open');
+  if(state.reactTarget){addReaction(state.reactTarget,{kind:'hype',msg,from:state.who});state.reactTarget=null;}
+  else{
+    state.feed.push({id:state.nextId++,type:'hype',who:state.who,msg,ts:Date.now(),reactions:[]});
+    Backend.message('hype', msg.id);
+    renderFeed(); notify(state.who,'<b>'+NAMES[state.who]+'</b>: '+msg.emoji+' '+msg[state.lang],null);
+  }
+}
+function sendLetter(msg){
+  $('msgOverlay').classList.remove('open');
+  const T=t();
+  if(state.reactTarget){addReaction(state.reactTarget,{kind:'letter',msg,from:state.who});state.reactTarget=null;}
+  else{
+    state.feed.push({id:state.nextId++,type:'letter',who:state.who,msg,ts:Date.now(),reactions:[]});
+    Backend.message('letter', msg.id);
+    renderFeed(); notify(state.who,'<b>'+NAMES[state.who]+'</b> '+T.sentYou+' 💌','love');
+  }
+  openLetter(state.who,msg);
+}
+function sendCare(msg){
+  const who=state.who;
+  $('moodOverlay').classList.remove('open'); state.moodTarget=null;
+  // Worth zero points, on purpose. Affection is not currency here.
+  state.feed.push({id:state.nextId++,type:'care',who,msg,ts:Date.now(),reactions:[]});
+  if(state.screen!=='log') state.unseenFeed++;
+  Backend.message('care', msg.id);
+  renderFeed(); renderBadges();
+  notify(who,msg.emoji+' '+msg[state.lang],'love');
+}
+function setMood(mood){
+  const T=t();
+  $('moodOverlay').classList.remove('open'); state.moodTarget=null;
+  state.moods[state.who]=mood;
+  Backend.mood(mood.id);
+  renderMoods(); renderMods(); renderKingdom(); renderTaskSheet(); renderBadges();
+  notify(state.who,'<b>'+NAMES[state.who]+'</b> '+T.moodSet+': '+mood.emoji+' '+mood[state.lang],null);
+}
+function openLetter(from,msg){
+  const T=t();
+  $('letterFrom').textContent=T.letterFrom+' '+NAMES[from];
+  $('letterBody').textContent=msg[state.lang];
+  $('letterOverlay').classList.add('open');
+}
+function confetti(){
+  const c=document.createElement('div'); c.className='confetti';
+  const colors=['#E8A33D','#5B8DEF','#E37FA1','#6FA287','#F2C94C'];
+  for(let i=0;i<44;i++){
+    const p=document.createElement('i');
+    p.style.left=Math.random()*100+'%';
+    p.style.background=colors[i%colors.length];
+    p.style.animationDelay=(Math.random()*.7)+'s';
+    c.appendChild(p);
+  }
+  document.body.appendChild(c);
+  setTimeout(()=>c.remove(),3600);
+}
+function openChest(){
+  const T=t();
+  notify(state.who,'<b>'+T.chestNotif+'</b>','build');
+  $('chestIcon').classList.remove('opened'); $('chestIcon').textContent='🎁';
+  $('chestReward').classList.remove('show');
+  $('chestClose').style.display='none';
+  $('chestHint').style.visibility='visible';
+  $('chestOverlay').classList.add('open');
+}
+$('chestIcon').addEventListener('click',()=>{
+  if(state.chestClaimed)return;
+  const reward=REWARDS[Math.floor(Math.random()*REWARDS.length)];
+  $('chestIcon').classList.add('opened'); $('chestIcon').textContent='🏆';
+  $('chestHint').style.visibility='hidden';
+  $('chestRewardText').textContent=reward[state.lang];
+  setTimeout(()=>{$('chestReward').classList.add('show');confetti();},250);
+  setTimeout(()=>{$('chestClose').style.display='inline-block';},900);
+  state.chestClaimed=true;
+});
+$('chestClose').addEventListener('click',()=>$('chestOverlay').classList.remove('open'));
+
+/* ===================================================================
+   AJUSTES — tareas / puntos / Foco / cofre editables (persisten en local)
+   =================================================================== */
+const SET_T = {
+  es:{ settingsTitle:'AJUSTES', close:'Cerrar', mapHint:'Arrastra para recorrer el reino',
+    langLabel:'Idioma', whoLabel:'Ver la app como', focusHead:'FOCO DE LA TEMPORADA',
+    focusHint:'Elige dos atributos. Las tareas de esos atributos valen ×1,5.',
+    tasksHead:'TAREAS Y PUNTOS', tasksHint:'Ajusta los puntos de cada tarea. 0 = ocultarla.',
+    rewardsHead:'EL COFRE', rewardsHint:'Lo que puede tocar al llenar la prosperidad. Una recompensa por línea.',
+    resetBtn:'Restablecer valores de fábrica' },
+  fr:{ settingsTitle:'RÉGLAGES', close:'Fermer', mapHint:'Fais glisser pour parcourir le royaume',
+    langLabel:'Langue', whoLabel:'Voir l\'appli comme', focusHead:'FOCUS DE LA SAISON',
+    focusHint:'Choisis deux attributs. Les tâches de ces attributs valent ×1,5.',
+    tasksHead:'TÂCHES ET POINTS', tasksHint:'Ajuste les points de chaque tâche. 0 = la masquer.',
+    rewardsHead:'LE COFFRE', rewardsHint:'Ce qui peut sortir quand la prospérité est pleine. Une récompense par ligne.',
+    resetBtn:'Rétablir les valeurs d\'usine' },
+  en:{ settingsTitle:'SETTINGS', close:'Close', mapHint:'Drag to explore the realm',
+    langLabel:'Language', whoLabel:'View the app as', focusHead:'FOCUS OF THE SEASON',
+    focusHint:'Pick two attributes. Tasks in those attributes are worth ×1.5.',
+    tasksHead:'TASKS & POINTS', tasksHint:'Adjust each task\'s points. 0 = hide it.',
+    rewardsHead:'THE CHEST', rewardsHint:'What may come up when prosperity fills. One reward per line.',
+    resetBtn:'Reset to factory values' },
+};
+Object.keys(UI).forEach(l=> Object.assign(UI[l], SET_T[l]));
+
+const DEFAULTS = {
+  taskPts: Object.fromEntries(TASKS.map(x=>[x.id,x.pts])),
+  focus: FOCUS.slice(),
+  rewards: REWARDS.map(r=>r[state.lang]),
+};
+function loadConfig(){
+  let cfg={};
+  try{ cfg = JSON.parse(localStorage.getItem('ksd_config')||'{}'); }catch(e){}
+  if(cfg.taskPts) TASKS.forEach(x=>{ if(typeof cfg.taskPts[x.id]==='number') x.pts=cfg.taskPts[x.id]; });
+  if(Array.isArray(cfg.focus) && cfg.focus.length===2){ FOCUS.splice(0,FOCUS.length,...cfg.focus); }
+  if(Array.isArray(cfg.rewards) && cfg.rewards.length){
+    REWARDS.splice(0,REWARDS.length,...cfg.rewards.map((txt,i)=>({id:'r'+(i+1),es:txt,fr:txt,en:txt})));
+  }
+  try{ const l=localStorage.getItem('ksd_lang'); if(l&&UI[l]) state.lang=l; }catch(e){}
+  try{ const w=localStorage.getItem('ksd_who'); if(w==='ale'||w==='aline') state.who=w; }catch(e){}
+}
+function saveConfig(){
+  const cfg = {
+    taskPts: Object.fromEntries(TASKS.map(x=>[x.id,x.pts])),
+    focus: FOCUS.slice(),
+    rewards: REWARDS.map(r=>r[state.lang]),
+  };
+  try{ localStorage.setItem('ksd_config', JSON.stringify(cfg)); }catch(e){}
+}
+function renderSettings(){
+  const T=t(), body=$('settingsBody'); body.innerHTML='';
+  const g = (html)=>{ const d=document.createElement('div'); d.className='set-group'; d.innerHTML=html; return d; };
+
+  // idioma + quién (local)
+  const pref = g('<h3>'+T.settingsTitle+'</h3>');
+  pref.appendChild(seg(T.langLabel, ['es','fr','en'], state.lang, v=>{ setLang(v); renderSettings(); }));
+  pref.appendChild(seg(T.whoLabel, [['ale',NAMES.ale],['aline',NAMES.aline]], state.who, v=>{
+    state.who=v; try{localStorage.setItem('ksd_who',v);}catch(e){} renderWho(); renderSettings();
+  }));
+  body.appendChild(pref);
+
+  // Foco
+  const fg = g('<h3>'+T.focusHead+'</h3><p class="set-hint">'+T.focusHint+'</p>');
+  const fp = document.createElement('div'); fp.className='set-focus-pick';
+  Object.keys(STATS).forEach(k=>{
+    const b=document.createElement('button'); b.type='button';
+    b.textContent = STATS[k].icon+' '+STATS[k][state.lang];
+    b.setAttribute('aria-pressed', FOCUS.includes(k));
+    b.addEventListener('click',()=>{
+      const i=FOCUS.indexOf(k);
+      if(i>=0){ if(FOCUS.length>1) FOCUS.splice(i,1); }
+      else { FOCUS.push(k); if(FOCUS.length>2) FOCUS.shift(); }
+      saveConfig(); renderAll(); renderSettings();
+    });
+    fp.appendChild(b);
+  });
+  fg.appendChild(fp); body.appendChild(fg);
+
+  // Tareas y puntos
+  const tg = g('<h3>'+T.tasksHead+'</h3><p class="set-hint">'+T.tasksHint+'</p>');
+  Object.keys(STATS).forEach(k=>{
+    TASKS.filter(x=>x.stat===k).forEach(task=>{
+      const row=document.createElement('div'); row.className='set-task';
+      const inp=document.createElement('input');
+      inp.type='number'; inp.min='0'; inp.max='20'; inp.value=task.pts; inp.className='set-num';
+      inp.setAttribute('aria-label', taskName(task)+' — puntos');
+      inp.addEventListener('change',()=>{
+        task.pts = Math.max(0, Math.min(20, parseInt(inp.value,10)||0));
+        inp.value = task.pts; saveConfig(); renderAll();
+      });
+      row.innerHTML='<span class="t-ico" aria-hidden="true">'+task.icon+'</span><span class="t-name">'+taskName(task)+'</span>';
+      row.appendChild(inp); tg.appendChild(row);
+    });
+  });
+  body.appendChild(tg);
+
+  // Cofre
+  const rg = g('<h3>'+T.rewardsHead+'</h3><p class="set-hint">'+T.rewardsHint+'</p>');
+  const ta=document.createElement('textarea');
+  ta.className='set-reward-input'; ta.rows=REWARDS.length+1;
+  ta.value = REWARDS.map(r=>r[state.lang]).join('\n');
+  ta.setAttribute('aria-label', T.rewardsHead);
+  ta.addEventListener('change',()=>{
+    const lines = ta.value.split('\n').map(s=>s.trim()).filter(Boolean);
+    if(lines.length){
+      REWARDS.splice(0,REWARDS.length,...lines.map((txt,i)=>({id:'r'+(i+1),es:txt,fr:txt,en:txt})));
+      saveConfig();
+    }
+  });
+  rg.appendChild(ta); body.appendChild(rg);
+
+  // Reset
+  const rb=document.createElement('button');
+  rb.className='sheet-close'; rb.type='button'; rb.textContent=T.resetBtn;
+  rb.addEventListener('click',()=>{
+    TASKS.forEach(x=> x.pts = DEFAULTS.taskPts[x.id]);
+    FOCUS.splice(0,FOCUS.length,...DEFAULTS.focus);
+    try{ localStorage.removeItem('ksd_config'); }catch(e){}
+    renderAll(); renderSettings();
+  });
+  body.appendChild(rb);
+
+  function seg(label, opts, cur, cb){
+    const row=document.createElement('div'); row.className='set-row';
+    const lb=document.createElement('label'); lb.textContent=label; row.appendChild(lb);
+    const s=document.createElement('div'); s.className='set-seg'; s.setAttribute('role','group'); s.setAttribute('aria-label',label);
+    opts.forEach(o=>{
+      const val = Array.isArray(o)?o[0]:o, txt = Array.isArray(o)?o[1]:o.toUpperCase();
+      const b=document.createElement('button'); b.type='button'; b.textContent=txt;
+      b.setAttribute('aria-pressed', val===cur);
+      b.addEventListener('click',()=>cb(val));
+      s.appendChild(b);
+    });
+    row.appendChild(s); return row;
+  }
+}
+
+/* ===================================================================
+   BACKEND — capa fina sobre Supabase. Sin credenciales → modo local
+   (todo funciona con `state` en este dispositivo, para validar el diseño).
+   El cliente vive en supabase-client.js (window.KSD).
+   =================================================================== */
+const Backend = {
+  mode: window.SUPABASE_URL ? 'supabase' : 'local',
+  ids: {},        // 'ale'/'aline' -> uuid   (en modo supabase)
+  meId: null,     // uuid del que mira
+
+  async connect(){
+    if(this.mode!=='supabase') return;
+    if(!window.KSD){ console.warn('supabase-client.js no cargó; sigo en local'); this.mode='local'; return; }
+    const { user } = await KSD.ready();
+    if(!user){ showSignIn(); return false; }
+    this.meId = user.id;
+    await this.hydrate();
+    KSD.subscribe(()=> this.hydrate().then(renderAll));
+    KSD.onAuth(a=>{ if(!a) location.reload(); });
+    return true;
+  },
+
+  // Trae el mundo de Supabase a `state` y a `MOODS`/idioma
+  async hydrate(){
+    const [profiles, deeds, board, messages, prosp] = await Promise.all([
+      KSD.profiles(), KSD.deeds(), KSD.board(), KSD.messages(), KSD.prosperity()
+    ]);
+    // mapear uuid -> 'ale'/'aline' por orden de nombre (Alejandro / Aline)
+    const list = Object.values(profiles).sort((a,b)=> a.name.localeCompare(b.name));
+    this.ids = {}; list.forEach((p,i)=> this.ids[ i===0 ? 'ale' : 'aline' ] = p.id);
+    const who = uid => this.ids.ale===uid ? 'ale' : 'aline';
+
+    state.who = who(this.meId);
+    const meProfile = profiles[this.meId];
+    if(meProfile && UI[meProfile.lang]) state.lang = meProfile.lang;
+    ['ale','aline'].forEach(k=>{
+      const p = profiles[this.ids[k]];
+      if(p){ const m = MOODS.find(x=>x.id===p.mood_id); if(m) state.moods[k]=m; }
+    });
+
+    state.prosperity = prosp;
+    // reconstruir feed desde deeds + messages (ids, nunca texto)
+    state.feed = [];
+    deeds.forEach(d=>{
+      const task = TASKS.find(x=>x.id===d.task_id) || {id:d.task_id,icon:'•',stat:d.stat,es:d.task_id,fr:d.task_id,en:d.task_id};
+      state.feed.push({ id:'d'+d.id, type:'task', who:who(d.user_id), task, gained:d.points, ts:+new Date(d.created_at), reactions:[] });
+    });
+    messages.forEach(m=>{
+      const w = who(m.from_user);
+      if(m.kind==='care'){ const msg=CARE.find(x=>x.id===m.payload_id); if(msg) state.feed.push({id:'m'+m.id,type:'care',who:w,msg,ts:+new Date(m.created_at),reactions:[]}); }
+      else if(m.kind==='letter'){ const msg=LETTERS.find(x=>x.id===m.payload_id); if(msg) state.feed.push({id:'m'+m.id,type:'letter',who:w,msg,ts:+new Date(m.created_at),reactions:[]}); }
+      else if(m.kind==='hype'){ const msg=HYPE.find(x=>x.id===m.payload_id); if(msg) state.feed.push({id:'m'+m.id,type:'hype',who:w,msg,ts:+new Date(m.created_at),reactions:[]}); }
+      // 'quick' y reacciones a deeds: se resuelven en render (deed_id)
+    });
+    state.feed.sort((a,b)=> a.ts-b.ts);
+    // recomputar niveles desde cero sumando deeds
+    state.ale = freshChar(); state.aline = freshChar();
+    deeds.slice().reverse().forEach(d=>{
+      const c = state[who(d.user_id)][d.stat]; if(!c) return;
+      c.xp += d.points;
+      while(c.xp>=XP_PER_LEVEL){ c.xp-=XP_PER_LEVEL; c.level++; }
+    });
+    state.board = board.map(b=>({ id:b.id, text:b.text, stat:b.stat, pts:b.points, by:who(b.created_by), ts:+new Date(b.created_at) }));
+  },
+
+  // ---- escrituras (en local no hacen nada; el state ya se actualizó) ----
+  deed(task, gained){ if(this.mode==='supabase') KSD.addDeed(task.id, task.stat, gained).catch(console.error); },
+  boardAdd(q){ if(this.mode==='supabase') KSD.addBoard(q.text, q.stat, q.pts).catch(console.error); },
+  boardClose(id){ if(this.mode==='supabase') KSD.closeBoard(id).catch(console.error); },
+  message(kind, payload_id, deed_id){ if(this.mode==='supabase') KSD.addMessage(kind, payload_id, deed_id).catch(console.error); },
+  mood(mood_id){ if(this.mode==='supabase') KSD.setMood(mood_id).catch(console.error); },
+  lang(l){ if(this.mode==='supabase') KSD.setLang(l).catch(console.error); },
+};
+
+/* Sign-in mínimo (solo modo supabase, primera vez) */
+function showSignIn(){
+  const T=t();
+  const ov = document.createElement('div');
+  ov.className='sheet-overlay open'; ov.id='signinOverlay';
+  ov.innerHTML =
+    '<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="signinTitle">'+
+    '<div class="sheet-title pixel" id="signinTitle">ENTRAR AL REINO</div>'+
+    '<input class="board-input" id="siEmail" type="email" autocomplete="email" placeholder="email">'+
+    '<input class="board-input" id="siPass" type="password" autocomplete="current-password" placeholder="contraseña">'+
+    '<button class="cta" id="siGo" style="width:100%">Entrar</button>'+
+    '<p class="set-hint" id="siErr" role="alert"></p></div>';
+  document.body.appendChild(ov);
+  $('siGo').addEventListener('click', async ()=>{
+    const { error } = await KSD.signIn($('siEmail').value.trim(), $('siPass').value);
+    if(error){ $('siErr').textContent = error.message; return; }
+    ov.remove();
+    await Backend.hydrate(); KSD.subscribe(()=> Backend.hydrate().then(renderAll));
+    renderAll();
+  });
+  $('siEmail').focus();
+}
+
+/* ===================================================================
+   ARRANQUE
+   =================================================================== */
+loadConfig();
+document.documentElement.lang = state.lang;
+renderAll();
+
+function bootMap(){
+  if(!window.KingdomMap) return;
+  KingdomMap.init($('mapCanvas'), $('mapStage'), {
+    onZone: name => { const z=$('mapZone'); z.textContent=name; z.style.opacity=1; clearTimeout(z._t); z._t=setTimeout(()=>z.style.opacity=0,1600); },
+  });
+  KingdomMap.setProsperity(state.prosperity);
+  $('mapDayNight').addEventListener('click',()=>{
+    const night = KingdomMap.toggleNight();
+    $('mapDayNight').textContent = night ? '🌙' : '☀️';
+    $('mapDayNight').setAttribute('aria-pressed', String(night));
+  });
+  $('mapStage').addEventListener('pointerdown',()=>{ $('mapHint').style.opacity=0; },{once:true});
+}
+bootMap();
+// (el mapa se pausa/reanuda al cambiar de pestaña — ver handler de .tab, ecoconcepción)
+
+// conectar backend (si hay credenciales); supabase-client.js va con defer
+window.addEventListener('DOMContentLoaded', ()=>{
+  Backend.connect().then(ok=>{ if(ok!==false) renderAll(); }).catch(console.error);
+});
+
+// service worker (PWA) — sin bloquear el arranque
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=> navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
