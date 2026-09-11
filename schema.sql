@@ -108,6 +108,25 @@ select cron.schedule(
 );
 
 -- =====================================================================
+-- 5. SUSCRIPCIONES PUSH (avisos aunque la app esté cerrada)
+--    Cada fila es "este dispositivo quiere que le avisen". Una persona
+--    puede tener varias (varios móviles). La función que envía los
+--    avisos lee esta tabla con la clave de servicio (se salta RLS);
+--    aquí solo se protege que cada cual gestione las suyas.
+-- =====================================================================
+create table push_subscriptions (
+  id         bigserial primary key,
+  user_id    uuid not null references profiles(id) on delete cascade default auth.uid(),
+  endpoint   text not null unique,
+  p256dh     text not null,
+  auth_key   text not null,
+  created_at timestamptz not null default now()
+);
+alter table push_subscriptions enable row level security;
+create policy "solo mis suscripciones" on push_subscriptions
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- =====================================================================
 -- REALTIME — para que aparezca en el otro móvil sin refrescar
 -- =====================================================================
 alter publication supabase_realtime add table deeds;

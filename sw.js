@@ -5,7 +5,7 @@
    usan (stale-while-revalidate). Nada de Supabase se cachea nunca.
    Sube el número de versión para forzar actualización.
    =================================================================== */
-const VERSION = 'ksd-v1';
+const VERSION = 'ksd-v2';
 const SHELL = VERSION + '-shell';
 const RUNTIME = VERSION + '-runtime';
 
@@ -73,4 +73,35 @@ self.addEventListener('fetch', (e) => {
       )
     );
   }
+});
+
+/* ===================================================================
+   NOTIFICACIONES PUSH
+   El payload lo arma la función de servidor (push-notify), ya en el
+   idioma de quien recibe. Aquí solo se muestra.
+   =================================================================== */
+self.addEventListener('push', (e) => {
+  let data = {};
+  try { data = e.data ? e.data.json() : {}; } catch (_) { data = { title: 'Kingdom of Saint-Dié', body: e.data && e.data.text() }; }
+  const title = data.title || 'Kingdom of Saint-Dié';
+  const options = {
+    body: data.body || '',
+    icon: 'icons/icon-192.png',
+    badge: 'icons/icon-192.png',
+    tag: data.tag || 'ksd',       // un aviso nuevo del mismo tipo reemplaza al anterior, no se amontonan
+    renotify: !!data.tag,
+    data: { url: data.url || '.' },
+  };
+  e.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '.';
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const c of list) { if ('focus' in c) return c.focus(); }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+    })
+  );
 });

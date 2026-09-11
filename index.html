@@ -20,6 +20,10 @@
      Para conectar: crea el proyecto, ejecuta schema.sql, y pega aquí. */
   window.SUPABASE_URL = 'https://ibjhlofuupbrwytgrgpp.supabase.co';
   window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imliamhsb2Z1dXBicnd5dGdyZ3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxNTcxMzQsImV4cCI6MjEwNDczMzEzNH0.VuVLUh3axePRczQEHohldBydY_QzYG_3TJ691l2iCR0';
+  /* Clave pública VAPID para notificaciones push (segura de exponer, es la
+     mitad pública del par — la privada solo vive en el servidor). Vacía =
+     notificaciones desactivadas aunque haya Supabase conectado. */
+  window.VAPID_PUBLIC_KEY = 'BMuXlj8fXOgwSB425aJTama4xBZBgnd4MwSl8r7Luma0YIl8mqBZ2wAp122sXhqgvzcBFxt3xeJ5zV-IIlJvO7o';
 </script>
 <style>
   :root{
@@ -1234,7 +1238,12 @@ const SET_T = {
     resetBtn:'Restablecer valores de fábrica', signOut:'Cerrar sesión',
     enteredRealm:' ha entrado al reino',
     zone_pueblo:'EL PUEBLO', zone_campos:'LOS CAMPOS', zone_ribera:'LA RIBERA',
-    zone_minas:'LAS MINAS', zone_bosque:'EL BOSQUE', zone_pais:'EL PAÍS' },
+    zone_minas:'LAS MINAS', zone_bosque:'EL BOSQUE', zone_pais:'EL PAÍS',
+    pushHead:'NOTIFICACIONES', pushHint:'Un aviso en el móvil cuando el otro haga algo, aunque la app esté cerrada.',
+    pushUnsupported:'Este navegador no admite notificaciones push.',
+    pushDenied:'Las bloqueaste en los ajustes del sistema — actívalas ahí para poder encenderlas aquí.',
+    pushOn:'Activadas en este dispositivo.', pushOff:'Desactivadas en este dispositivo.',
+    pushEnable:'Activar notificaciones', pushDisable:'Desactivar notificaciones' },
   fr:{ settingsTitle:'RÉGLAGES', close:'Fermer', mapHint:'Fais glisser pour parcourir le royaume',
     langLabel:'Langue', whoLabel:'Voir l\'appli comme', focusHead:'FOCUS DE LA SAISON',
     focusHint:'Choisis deux attributs. Les tâches de ces attributs valent ×1,5.',
@@ -1243,7 +1252,12 @@ const SET_T = {
     resetBtn:'Rétablir les valeurs d\'usine', signOut:'Se déconnecter',
     enteredRealm:' est entré·e dans le royaume',
     zone_pueblo:'LE VILLAGE', zone_campos:'LES CHAMPS', zone_ribera:'LA RIVE',
-    zone_minas:'LES MINES', zone_bosque:'LA FORÊT', zone_pais:'LE PAYS' },
+    zone_minas:'LES MINES', zone_bosque:'LA FORÊT', zone_pais:'LE PAYS',
+    pushHead:'NOTIFICATIONS', pushHint:'Une alerte sur le téléphone quand l\'autre fait quelque chose, même appli fermée.',
+    pushUnsupported:'Ce navigateur ne gère pas les notifications push.',
+    pushDenied:'Bloquées dans les réglages du système — active-les là pour pouvoir les activer ici.',
+    pushOn:'Activées sur cet appareil.', pushOff:'Désactivées sur cet appareil.',
+    pushEnable:'Activer les notifications', pushDisable:'Désactiver les notifications' },
   en:{ settingsTitle:'SETTINGS', close:'Close', mapHint:'Drag to explore the realm',
     langLabel:'Language', whoLabel:'View the app as', focusHead:'FOCUS OF THE SEASON',
     focusHint:'Pick two attributes. Tasks in those attributes are worth ×1.5.',
@@ -1252,7 +1266,12 @@ const SET_T = {
     resetBtn:'Reset to factory values', signOut:'Sign out',
     enteredRealm:' has entered the realm',
     zone_pueblo:'THE VILLAGE', zone_campos:'THE FIELDS', zone_ribera:'THE RIVERBANK',
-    zone_minas:'THE MINES', zone_bosque:'THE FOREST', zone_pais:'THE COUNTRY' },
+    zone_minas:'THE MINES', zone_bosque:'THE FOREST', zone_pais:'THE COUNTRY',
+    pushHead:'NOTIFICATIONS', pushHint:'A phone alert when the other does something, even with the app closed.',
+    pushUnsupported:'This browser doesn\'t support push notifications.',
+    pushDenied:'Blocked in system settings — turn them on there to enable them here.',
+    pushOn:'On for this device.', pushOff:'Off for this device.',
+    pushEnable:'Enable notifications', pushDisable:'Disable notifications' },
 };
 Object.keys(UI).forEach(l=> Object.assign(UI[l], SET_T[l]));
 
@@ -1302,6 +1321,17 @@ function renderSettings(){
     }));
   }
   body.appendChild(pref);
+
+  // Notificaciones push
+  if(Backend.mode==='supabase' && window.VAPID_PUBLIC_KEY){
+    const ng = g('<h3>'+T.pushHead+'</h3><p class="set-hint">'+T.pushHint+'</p>');
+    const row = document.createElement('div'); row.className='set-row';
+    const status = document.createElement('span'); status.id='pushStatus'; status.style.fontSize='14px'; status.style.opacity='.75';
+    const btn = document.createElement('button'); btn.type='button'; btn.className='sheet-close'; btn.id='pushToggle';
+    row.appendChild(status); ng.appendChild(row); ng.appendChild(btn);
+    body.appendChild(ng);
+    refreshPushUI();
+  }
 
   // Foco
   const fg = g('<h3>'+T.focusHead+'</h3><p class="set-hint">'+T.focusHint+'</p>');
@@ -1376,6 +1406,61 @@ function renderSettings(){
       s.appendChild(b);
     });
     row.appendChild(s); return row;
+  }
+}
+
+/* ===================================================================
+   NOTIFICACIONES PUSH — avisan aunque la app esté cerrada.
+   iOS: solo funciona con la PWA instalada en pantalla de inicio (16.4+).
+   El pedir permiso siempre parte de un toque de la persona, nunca solo.
+   =================================================================== */
+function urlBase64ToUint8Array(base64){
+  const pad = '='.repeat((4 - base64.length % 4) % 4);
+  const b64 = (base64 + pad).replace(/-/g,'+').replace(/_/g,'/');
+  const raw = atob(b64);
+  const out = new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++) out[i]=raw.charCodeAt(i);
+  return out;
+}
+function pushSupported(){
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+async function currentPushSub(){
+  if(!pushSupported()) return null;
+  const reg = await navigator.serviceWorker.ready;
+  return reg.pushManager.getSubscription();
+}
+async function refreshPushUI(){
+  const T=t(), status=$('pushStatus'), btn=$('pushToggle');
+  if(!status||!btn) return;
+  if(!pushSupported()){ status.textContent=T.pushUnsupported; btn.style.display='none'; return; }
+  if(Notification.permission==='denied'){ status.textContent=T.pushDenied; btn.style.display='none'; return; }
+  const sub = await currentPushSub();
+  btn.style.display='';
+  if(sub){
+    status.textContent=T.pushOn;
+    btn.textContent=T.pushDisable;
+    btn.onclick=async ()=>{
+      try{ await KSD.removePushSubscription(sub.endpoint); }catch(e){ console.error(e); }
+      await sub.unsubscribe();
+      refreshPushUI();
+    };
+  } else {
+    status.textContent=T.pushOff;
+    btn.textContent=T.pushEnable;
+    btn.onclick=async ()=>{
+      try{
+        const perm = await Notification.requestPermission();
+        if(perm!=='granted'){ refreshPushUI(); return; }
+        const reg = await navigator.serviceWorker.ready;
+        const newSub = await reg.pushManager.subscribe({
+          userVisibleOnly:true,
+          applicationServerKey: urlBase64ToUint8Array(window.VAPID_PUBLIC_KEY),
+        });
+        await KSD.savePushSubscription(newSub);
+      }catch(e){ console.error(e); }
+      refreshPushUI();
+    };
   }
 }
 

@@ -141,6 +141,18 @@
       sb.from("profiles").update({ mood_id, mood_at: new Date().toISOString() }).eq("id", session.user.id),
     setLang: async (lang) =>
       sb.from("profiles").update({ lang }).eq("id", session.user.id),
+
+    // Notificaciones push: guardar/quitar la suscripción de este dispositivo.
+    async savePushSubscription(sub) {
+      const j = sub.toJSON();
+      return sb.from("push_subscriptions").upsert(
+        { user_id: session.user.id, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth_key: j.keys.auth },
+        { onConflict: "endpoint" }
+      );
+    },
+    async removePushSubscription(endpoint) {
+      return sb.from("push_subscriptions").delete().eq("endpoint", endpoint);
+    },
   };
 
   boot().catch((e) => {

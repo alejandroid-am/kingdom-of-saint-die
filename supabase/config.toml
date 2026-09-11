@@ -1,0 +1,8 @@
+# Configuración mínima para desplegar la función de notificaciones push
+# con la CLI de Supabase. Si `supabase init` te pide sobrescribirlo o
+# genera uno más completo, adelante — esto es solo para que
+# `supabase functions deploy push-notify` encuentre el proyecto.
+project_id = "kingdom-of-saint-die"
+
+[functions.push-notify]
+verify_jwt = false
