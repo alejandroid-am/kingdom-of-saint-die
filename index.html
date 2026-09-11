@@ -1445,12 +1445,15 @@ const Backend = {
   },
 
   // ---- escrituras (en local no hacen nada; el state ya se actualizó) ----
-  deed(task, gained){ if(this.mode==='supabase') KSD.addDeed(task.id, task.stat, gained).catch(console.error); },
-  boardAdd(q){ if(this.mode==='supabase') KSD.addBoard(q.text, q.stat, q.pts).catch(console.error); },
-  boardClose(id){ if(this.mode==='supabase') KSD.closeBoard(id).catch(console.error); },
-  message(kind, payload_id, deed_id){ if(this.mode==='supabase') KSD.addMessage(kind, payload_id, deed_id).catch(console.error); },
-  mood(mood_id){ if(this.mode==='supabase') KSD.setMood(mood_id).catch(console.error); },
-  lang(l){ if(this.mode==='supabase') KSD.setLang(l).catch(console.error); },
+  // safe(): nunca deja que un fallo de red/backend tumbe lo que ya se ve
+  // en pantalla — la acción local siempre gana, esto es solo el envío.
+  safe(fn){ try{ Promise.resolve(fn()).catch(console.error); }catch(e){ console.error(e); } },
+  deed(task, gained){ if(this.mode==='supabase') this.safe(()=> KSD.addDeed(task.id, task.stat, gained)); },
+  boardAdd(q){ if(this.mode==='supabase') this.safe(()=> KSD.addBoard(q.text, q.stat, q.pts)); },
+  boardClose(id){ if(this.mode==='supabase') this.safe(()=> KSD.closeBoard(id)); },
+  message(kind, payload_id, deed_id){ if(this.mode==='supabase') this.safe(()=> KSD.addMessage(kind, payload_id, deed_id)); },
+  mood(mood_id){ if(this.mode==='supabase') this.safe(()=> KSD.setMood(mood_id)); },
+  lang(l){ if(this.mode==='supabase') this.safe(()=> KSD.setLang(l)); },
 };
 
 /* Sign-in mínimo (solo modo supabase, primera vez) */

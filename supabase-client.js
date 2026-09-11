@@ -125,17 +125,21 @@
       return map;
     },
 
-    addDeed: (task_id, stat, points) =>
+    // 'async' aquí no es decorativo: hace que devuelvan una Promise nativa
+    // de verdad (con .catch real). Sin él, lo que devuelve supabase-js es
+    // "thenable" pero no una Promise completa, y `.catch(...)` del lado de
+    // la app petaba antes de guardar nada — la causa de "no se registra nada".
+    addDeed: async (task_id, stat, points) =>
       sb.from("deeds").insert({ task_id, stat, points }).select().single(),
-    addBoard: (text, stat, points) =>
+    addBoard: async (text, stat, points) =>
       sb.from("board").insert({ text, stat, points }).select().single(),
-    closeBoard: (id) =>
+    closeBoard: async (id) =>
       sb.from("board").update({ done_by: session.user.id, done_at: new Date().toISOString() }).eq("id", id),
-    addMessage: (kind, payload_id, deed_id) =>
+    addMessage: async (kind, payload_id, deed_id) =>
       sb.from("messages").insert({ kind, payload_id, deed_id: deed_id || null }).select().single(),
-    setMood: (mood_id) =>
+    setMood: async (mood_id) =>
       sb.from("profiles").update({ mood_id, mood_at: new Date().toISOString() }).eq("id", session.user.id),
-    setLang: (lang) =>
+    setLang: async (lang) =>
       sb.from("profiles").update({ lang }).eq("id", session.user.id),
   };
 
