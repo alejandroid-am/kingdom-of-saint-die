@@ -71,7 +71,10 @@
     if (!error) profile = data;
   }
 
+  let realtimeOn = false;
   function subscribeRealtime() {
+    if (realtimeOn) return;   // no crear dos canales si entras y ya estaba activo
+    realtimeOn = true;
     const ch = sb.channel("kingdom");
     ["deeds", "board", "messages", "profiles"].forEach((table) => {
       ch.on("postgres_changes", { event: "*", schema: "public", table }, (p) => {
@@ -93,7 +96,7 @@
       const res = await sb.auth.signInWithPassword({ email, password });
       // fija la sesión al momento (no esperar al evento onAuthStateChange,
       // que puede llegar después de que el llamante ya siga adelante)
-      if (res.data && res.data.session) { session = res.data.session; await loadProfile(); }
+      if (res.data && res.data.session) { session = res.data.session; await loadProfile(); subscribeRealtime(); }
       return res;
     },
     signOut: () => sb.auth.signOut(),

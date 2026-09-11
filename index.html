@@ -1231,19 +1231,28 @@ const SET_T = {
     focusHint:'Elige dos atributos. Las tareas de esos atributos valen ×1,5.',
     tasksHead:'TAREAS Y PUNTOS', tasksHint:'Ajusta los puntos de cada tarea. 0 = ocultarla.',
     rewardsHead:'EL COFRE', rewardsHint:'Lo que puede tocar al llenar la prosperidad. Una recompensa por línea.',
-    resetBtn:'Restablecer valores de fábrica', signOut:'Cerrar sesión' },
+    resetBtn:'Restablecer valores de fábrica', signOut:'Cerrar sesión',
+    enteredRealm:' ha entrado al reino',
+    zone_pueblo:'EL PUEBLO', zone_campos:'LOS CAMPOS', zone_ribera:'LA RIBERA',
+    zone_minas:'LAS MINAS', zone_bosque:'EL BOSQUE', zone_pais:'EL PAÍS' },
   fr:{ settingsTitle:'RÉGLAGES', close:'Fermer', mapHint:'Fais glisser pour parcourir le royaume',
     langLabel:'Langue', whoLabel:'Voir l\'appli comme', focusHead:'FOCUS DE LA SAISON',
     focusHint:'Choisis deux attributs. Les tâches de ces attributs valent ×1,5.',
     tasksHead:'TÂCHES ET POINTS', tasksHint:'Ajuste les points de chaque tâche. 0 = la masquer.',
     rewardsHead:'LE COFFRE', rewardsHint:'Ce qui peut sortir quand la prospérité est pleine. Une récompense par ligne.',
-    resetBtn:'Rétablir les valeurs d\'usine', signOut:'Se déconnecter' },
+    resetBtn:'Rétablir les valeurs d\'usine', signOut:'Se déconnecter',
+    enteredRealm:' est entré·e dans le royaume',
+    zone_pueblo:'LE VILLAGE', zone_campos:'LES CHAMPS', zone_ribera:'LA RIVE',
+    zone_minas:'LES MINES', zone_bosque:'LA FORÊT', zone_pais:'LE PAYS' },
   en:{ settingsTitle:'SETTINGS', close:'Close', mapHint:'Drag to explore the realm',
     langLabel:'Language', whoLabel:'View the app as', focusHead:'FOCUS OF THE SEASON',
     focusHint:'Pick two attributes. Tasks in those attributes are worth ×1.5.',
     tasksHead:'TASKS & POINTS', tasksHint:'Adjust each task\'s points. 0 = hide it.',
     rewardsHead:'THE CHEST', rewardsHint:'What may come up when prosperity fills. One reward per line.',
-    resetBtn:'Reset to factory values', signOut:'Sign out' },
+    resetBtn:'Reset to factory values', signOut:'Sign out',
+    enteredRealm:' has entered the realm',
+    zone_pueblo:'THE VILLAGE', zone_campos:'THE FIELDS', zone_ribera:'THE RIVERBANK',
+    zone_minas:'THE MINES', zone_bosque:'THE FOREST', zone_pais:'THE COUNTRY' },
 };
 Object.keys(UI).forEach(l=> Object.assign(UI[l], SET_T[l]));
 
@@ -1464,7 +1473,7 @@ function showSignIn(){
     ov.remove();
     await Backend.hydrate(); KSD.subscribe(()=> Backend.hydrate().then(renderAll));
     renderAll();
-    notify(state.who, '<b>'+NAMES[state.who]+'</b> ha entrado al reino', null);
+    notify(state.who, '<b>'+NAMES[state.who]+'</b>'+t().enteredRealm, null);
   });
   $('siEmail').focus();
 }
@@ -1479,7 +1488,7 @@ renderAll();
 function bootMap(){
   if(!window.KingdomMap) return;
   KingdomMap.init($('mapCanvas'), $('mapStage'), {
-    onZone: name => { const z=$('mapZone'); z.textContent=name; z.style.opacity=1; clearTimeout(z._t); z._t=setTimeout(()=>z.style.opacity=0,1600); },
+    onZone: key => { const z=$('mapZone'); z.textContent=t()['zone_'+key]||key; z.style.opacity=1; clearTimeout(z._t); z._t=setTimeout(()=>z.style.opacity=0,1600); },
   });
   KingdomMap.setProsperity(state.prosperity);
   $('mapDayNight').addEventListener('click',()=>{

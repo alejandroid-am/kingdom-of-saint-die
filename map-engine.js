@@ -550,18 +550,19 @@ function glide(){
   else rafId = 0;
 }
 
+// Claves, no texto: el nombre visible lo decide quien mira (ver opts.onZone)
 const REGIONS = [
-  {n:'EL PUEBLO', x:CX-70,   y:CY-60,    r:540},
-  {n:'LOS CAMPOS',x:CX+560,  y:CY+150,   r:520},
-  {n:'LOS CAMPOS',x:CX-760,  y:CY+140,   r:540},
-  {n:'LA RIBERA', x:CX+40,   y:CY+780,   r:440},
-  {n:'LAS MINAS', x:CX+960,  y:CY-150,   r:440},
-  {n:'EL BOSQUE', x:CX-1000, y:CY-330,   r:600},
-  {n:'EL BOSQUE', x:CX+120,  y:CY-1000,  r:600},
+  {n:'pueblo', x:CX-70,   y:CY-60,    r:540},
+  {n:'campos', x:CX+560,  y:CY+150,   r:520},
+  {n:'campos', x:CX-760,  y:CY+140,   r:540},
+  {n:'ribera', x:CX+40,   y:CY+780,   r:440},
+  {n:'minas',  x:CX+960,  y:CY-150,   r:440},
+  {n:'bosque', x:CX-1000, y:CY-330,   r:600},
+  {n:'bosque', x:CX+120,  y:CY-1000,  r:600},
 ];
 let zoneName = '';
 function updateZone(){
-  let hit = 'EL PAÍS';
+  let hit = 'pais';
   for(const R of REGIONS){
     let dx = Math.abs(cam.x - R.x); dx = Math.min(dx, WORLD - dx);
     let dy = Math.abs(cam.y - R.y); dy = Math.min(dy, WORLD - dy);
