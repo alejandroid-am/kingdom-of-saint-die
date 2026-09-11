@@ -89,7 +89,13 @@
     onAuth: (cb) => { authCbs.push(cb); if (session) cb({ user: session.user, profile }); },
     subscribe: (cb) => { subCbs.push(cb); },
 
-    signIn: (email, password) => sb.auth.signInWithPassword({ email, password }),
+    async signIn(email, password) {
+      const res = await sb.auth.signInWithPassword({ email, password });
+      // fija la sesión al momento (no esperar al evento onAuthStateChange,
+      // que puede llegar después de que el llamante ya siga adelante)
+      if (res.data && res.data.session) { session = res.data.session; await loadProfile(); }
+      return res;
+    },
     signOut: () => sb.auth.signOut(),
     currentUserId: () => session && session.user.id,
 
